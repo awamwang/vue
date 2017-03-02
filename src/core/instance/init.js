@@ -9,6 +9,7 @@ import { mergeOptions } from '../util/index'
 
 let uid = 0
 
+// [wangnew2013]:2017-02-16 16:20:37 Vue是一个节点类型为Component的树
 export function initMixin (Vue: Class<Component>) {
   Vue.prototype._init = function (options?: Object) {
     const vm: Component = this

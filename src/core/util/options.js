@@ -177,7 +177,7 @@ strats.watch = function (parentVal: ?Object, childVal: ?Object): ?Object {
  */
 strats.props =
 strats.methods =
-strats.computed = function (parentVal: ?Object, childVal: ?Object): ?Object {
+strats.computed = function (parentVal: ?Odject, childVal: ?Object): ?Object {
   if (!childVal) return Object.create(parentVal || null)
   if (!parentVal) return childVal
   const ret = Object.create(null)

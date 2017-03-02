@@ -63,6 +63,7 @@ export function updateListeners (
       }
       add(event.name, cur.invoker, event.once, event.capture)
     } else if (cur !== old) {
+      // [wangnew2013]:2017-02-27 10:42:30 最小代价的更新方式？
       old.fn = cur
       on[name] = old
     }
