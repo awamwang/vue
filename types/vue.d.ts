@@ -61,7 +61,7 @@ export declare class Vue {
   ): (() => void);
   $on(event: string | string[], callback: Function): this;
   $once(event: string, callback: Function): this;
-  $off(event?: string, callback?: Function): this;
+  $off(event?: string | string[], callback?: Function): this;
   $emit(event: string, ...args: any[]): this;
   $nextTick(callback: (this: this) => void): void;
   $nextTick(): Promise<void>;
@@ -71,7 +71,10 @@ export declare class Vue {
     silent: boolean;
     optionMergeStrategies: any;
     devtools: boolean;
-    errorHandler(err: Error, vm: Vue): void;
+    productionTip: boolean;
+    performance: boolean;
+    errorHandler(err: Error, vm: Vue, info: string): void;
+    ignoredElements: string[];
     keyCodes: { [key: string]: number };
   }
 

@@ -24,14 +24,11 @@ export function resolveTransition (def?: string | Object): ?Object {
 const autoCssTransition: (name: string) => Object = cached(name => {
   return {
     enterClass: `${name}-enter`,
-    leaveClass: `${name}-leave`,
-    appearClass: `${name}-enter`,
     enterToClass: `${name}-enter-to`,
-    leaveToClass: `${name}-leave-to`,
-    appearToClass: `${name}-enter-to`,
     enterActiveClass: `${name}-enter-active`,
-    leaveActiveClass: `${name}-leave-active`,
-    appearActiveClass: `${name}-enter-active`
+    leaveClass: `${name}-leave`,
+    leaveToClass: `${name}-leave-to`,
+    leaveActiveClass: `${name}-leave-active`
   }
 })
 
@@ -88,7 +85,7 @@ export function whenTransitionEnds (
 ) {
   const { type, timeout, propCount } = getTransitionInfo(el, expectedType)
   if (!type) return cb()
-  const event = type === TRANSITION ? transitionEndEvent : animationEndEvent
+  const event: string = type === TRANSITION ? transitionEndEvent : animationEndEvent
   let ended = 0
   const end = () => {
     el.removeEventListener(event, onEnd)
@@ -117,15 +114,15 @@ export function getTransitionInfo (el: Element, expectedType?: ?string): {
   timeout: number;
   hasTransform: boolean;
 } {
-  const styles = window.getComputedStyle(el)
-  const transitioneDelays = styles[transitionProp + 'Delay'].split(', ')
-  const transitionDurations = styles[transitionProp + 'Duration'].split(', ')
-  const transitionTimeout = getTimeout(transitioneDelays, transitionDurations)
-  const animationDelays = styles[animationProp + 'Delay'].split(', ')
-  const animationDurations = styles[animationProp + 'Duration'].split(', ')
-  const animationTimeout = getTimeout(animationDelays, animationDurations)
+  const styles: any = window.getComputedStyle(el)
+  const transitionDelays: Array<string> = styles[transitionProp + 'Delay'].split(', ')
+  const transitionDurations: Array<string> = styles[transitionProp + 'Duration'].split(', ')
+  const transitionTimeout: number = getTimeout(transitionDelays, transitionDurations)
+  const animationDelays: Array<string> = styles[animationProp + 'Delay'].split(', ')
+  const animationDurations: Array<string> = styles[animationProp + 'Duration'].split(', ')
+  const animationTimeout: number = getTimeout(animationDelays, animationDurations)
 
-  let type
+  let type: ?string
   let timeout = 0
   let propCount = 0
   /* istanbul ignore if */
@@ -154,7 +151,7 @@ export function getTransitionInfo (el: Element, expectedType?: ?string): {
         : animationDurations.length
       : 0
   }
-  const hasTransform =
+  const hasTransform: boolean =
     type === TRANSITION &&
     transformRE.test(styles[transitionProp + 'Property'])
   return {

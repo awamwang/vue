@@ -37,11 +37,16 @@ export function createBundleRendererCreator (createRenderer: () => Renderer) {
     let basedir = rendererOptions && rendererOptions.basedir
 
     // load bundle if given filepath
-    if (typeof bundle === 'string' && bundle.charAt(0) === '/') {
+    if (
+      typeof bundle === 'string' &&
+      /\.js(on)?$/.test(bundle) &&
+      path.isAbsolute(bundle)
+    ) {
       if (fs.existsSync(bundle)) {
+        const isJSON = /\.json$/.test(bundle)
         basedir = basedir || path.dirname(bundle)
         bundle = fs.readFileSync(bundle, 'utf-8')
-        if (/\.json$/.test(bundle)) {
+        if (isJSON) {
           try {
             bundle = JSON.parse(bundle)
           } catch (e) {

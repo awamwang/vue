@@ -306,6 +306,27 @@ describe('Options props', () => {
     expect('already declared as a prop').toHaveBeenWarned()
   })
 
+  it('should warn methods already defined as a prop', () => {
+    new Vue({
+      template: '<test a="1"></test>',
+      components: {
+        test: {
+          template: '<div></div>',
+          props: {
+            a: null
+          },
+          methods: {
+            a () {
+
+            }
+          }
+        }
+      }
+    }).$mount()
+    expect(`method "a" has already been defined as a prop`).toHaveBeenWarned()
+    expect(`Avoid mutating a prop directly`).toHaveBeenWarned()
+  })
+
   it('treat boolean props properly', () => {
     const vm = new Vue({
       template: '<comp ref="child" prop-a prop-b="prop-b"></comp>',
@@ -417,7 +438,7 @@ describe('Options props', () => {
   })
 
   // #4090
-  it('should not trigger wathcer on default value', done => {
+  it('should not trigger watcher on default value', done => {
     const spy = jasmine.createSpy()
     const vm = new Vue({
       template: `<test :value="a" :test="b"></test>`,

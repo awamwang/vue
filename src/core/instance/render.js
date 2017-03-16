@@ -1,7 +1,5 @@
 /* @flow */
 
-import config from '../config'
-
 import {
   warn,
   nextTick,
@@ -9,8 +7,8 @@ import {
   _toString,
   looseEqual,
   emptyObject,
-  looseIndexOf,
-  formatComponentName
+  handleError,
+  looseIndexOf
 } from '../util/index'
 
 import VNode, {
@@ -79,17 +77,17 @@ export function renderMixin (Vue: Class<Component>) {
     try {
       vnode = render.call(vm._renderProxy, vm.$createElement)
     } catch (e) {
+      handleError(e, vm, `render function`)
+      // return error render result,
+      // or previous vnode to prevent render error causing blank component
       /* istanbul ignore else */
-      if (config.errorHandler) {
-        config.errorHandler.call(null, e, vm)
+      if (process.env.NODE_ENV !== 'production') {
+        vnode = vm.$options.renderError
+          ? vm.$options.renderError.call(vm._renderProxy, vm.$createElement, e)
+          : vm._vnode
       } else {
-        if (process.env.NODE_ENV !== 'production') {
-          warn(`Error when rendering ${formatComponentName(vm)}:`)
-        }
-        throw e
+        vnode = vm._vnode
       }
-      // return previous vnode to prevent render error causing blank component
-      vnode = vm._vnode
     }
     // return empty vnode in case the render function errored out
     if (!(vnode instanceof VNode)) {

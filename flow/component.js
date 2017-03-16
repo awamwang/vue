@@ -2,10 +2,6 @@ import type { Config } from '../src/core/config'
 import type VNode from '../src/core/vdom/vnode'
 import type Watcher from '../src/core/observer/watcher'
 
-declare type Refs = {
-  [key: string]: Component | Element | Array<Component | Element> | void;
-};
-
 declare interface Component {
   // constructor information
   static cid: number;
@@ -14,6 +10,7 @@ declare interface Component {
   static extend: (options: Object) => Function;
   static superOptions: Object;
   static extendOptions: Object;
+  static sealedOptions: Object;
   static super: Class<Component>;
   // assets
   static directive: (id: string, def?: Function | Object) => Function | Object | void;
@@ -27,7 +24,7 @@ declare interface Component {
   $parent: Component | void;
   $root: Component;
   $children: Array<Component>;
-  $refs: Refs;
+  $refs: { [key: string]: Component | Element | Array<Component | Element> | void };
   $slots: { [key: string]: Array<VNode> };
   $scopedSlots: { [key: string]: () => VNodeChildren };
   $vnode: VNode;
@@ -38,18 +35,19 @@ declare interface Component {
   $mount: (el?: Element | string, hydrating?: boolean) => Component;
   $forceUpdate: () => void;
   $destroy: () => void;
-  $set: (obj: Array<mixed> | Object, key: mixed, val: mixed) => void;
-  $delete: (obj: Object, key: string) => void;
+  $set: <T>(target: Object | Array<T>, key: string | number, val: T) => T;
+  $delete: <T>(target: Object | Array<T>, key: string | number) => void;
   $watch: (expOrFn: string | Function, cb: Function, options?: Object) => Function;
   $on: (event: string | Array<string>, fn: Function) => Component;
   $once: (event: string, fn: Function) => Component;
-  $off: (event?: string, fn?: Function) => Component;
+  $off: (event?: string | Array<string>, fn?: Function) => Component;
   $emit: (event: string, ...args: Array<mixed>) => Component;
   $nextTick: (fn: Function) => void;
   $createElement: (tag?: string | Component, data?: Object, children?: VNodeChildren) => VNode;
 
   // private properties
   _uid: number;
+  _name: string; // this only exists in dev mode
   _isVue: true;
   _self: Component;
   _renderProxy: Component;
@@ -60,25 +58,21 @@ declare interface Component {
   _data: Object;
   _props: Object;
   _events: Object;
-  _inactive: boolean;
+  _inactive: boolean | null;
+  _directInactive: boolean;
   _isMounted: boolean;
   _isDestroyed: boolean;
   _isBeingDestroyed: boolean;
   _vnode: ?VNode;
   _staticTrees: ?Array<VNode>;
   _hasHookEvent: boolean;
+  _provided: ?Object;
 
   // private methods
   // lifecycle
   _init: Function;
   _mount: (el?: Element | void, hydrating?: boolean) => Component;
   _update: (vnode: VNode, hydrating?: boolean) => void;
-  _updateFromParent: (
-    propsData: ?Object,
-    listeners: ?{ [key: string]: Function | Array<Function> },
-    parentVnode: VNode,
-    renderChildren: ?Array<VNode>
-  ) => void;
   // rendering
   _render: () => VNode;
   __patch__: (a: Element | VNode | void, b: VNode) => any;
