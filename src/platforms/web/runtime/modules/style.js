@@ -12,24 +12,34 @@ const setProp = (el, name, val) => {
   } else if (importantRE.test(val)) {
     el.style.setProperty(name, val.replace(importantRE, ''), 'important')
   } else {
-    el.style[normalize(name)] = val
+    const normalizedName = normalize(name)
+    if (Array.isArray(val)) {
+      // Support values array created by autoprefixer, e.g.
+      // {display: ["-webkit-box", "-ms-flexbox", "flex"]}
+      // Set them one by one, and the browser will only set those it can recognize
+      for (let i = 0, len = val.length; i < len; i++) {
+        el.style[normalizedName] = val[i]
+      }
+    } else {
+      el.style[normalizedName] = val
+    }
   }
 }
 
-const prefixes = ['Webkit', 'Moz', 'ms']
+const vendorNames = ['Webkit', 'Moz', 'ms']
 
-let testEl
+let emptyStyle
 const normalize = cached(function (prop) {
-  testEl = testEl || document.createElement('div')
+  emptyStyle = emptyStyle || document.createElement('div').style
   prop = camelize(prop)
-  if (prop !== 'filter' && (prop in testEl.style)) {
+  if (prop !== 'filter' && (prop in emptyStyle)) {
     return prop
   }
-  const upper = prop.charAt(0).toUpperCase() + prop.slice(1)
-  for (let i = 0; i < prefixes.length; i++) {
-    const prefixed = prefixes[i] + upper
-    if (prefixed in testEl.style) {
-      return prefixed
+  const capName = prop.charAt(0).toUpperCase() + prop.slice(1)
+  for (let i = 0; i < vendorNames.length; i++) {
+    const name = vendorNames[i] + capName
+    if (name in emptyStyle) {
+      return name
     }
   }
 })
@@ -39,7 +49,8 @@ function updateStyle (oldVnode: VNodeWithData, vnode: VNodeWithData) {
   const oldData = oldVnode.data
 
   if (isUndef(data.staticStyle) && isUndef(data.style) &&
-      isUndef(oldData.staticStyle) && isUndef(oldData.style)) {
+    isUndef(oldData.staticStyle) && isUndef(oldData.style)
+  ) {
     return
   }
 

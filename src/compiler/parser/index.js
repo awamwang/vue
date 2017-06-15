@@ -1,12 +1,12 @@
 /* @flow */
 
-import { decode } from 'he'
+import he from 'he'
 import { parseHTML } from './html-parser'
 import { parseText } from './text-parser'
 import { parseFilters } from './filter-parser'
 import { cached, no, camelize } from 'shared/util'
-import { isIE, isServerRendering } from 'core/util/env'
 import { genAssignmentCode } from '../directives/model'
+import { isIE, isEdge, isServerRendering } from 'core/util/env'
 
 import {
   addProp,
@@ -28,7 +28,7 @@ const argRE = /:(.*)$/
 const bindRE = /^:|^v-bind:/
 const modifierRE = /\.[^.]+/g
 
-const decodeHTMLCached = cached(decode)
+const decodeHTMLCached = cached(he.decode)
 
 // configurable state
 export let warn
@@ -48,12 +48,15 @@ export function parse (
   options: CompilerOptions
 ): ASTElement | void {
   warn = options.warn || baseWarn
-  platformGetTagNamespace = options.getTagNamespace || no
-  platformMustUseProp = options.mustUseProp || no
+
   platformIsPreTag = options.isPreTag || no
-  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
+  platformMustUseProp = options.mustUseProp || no
+  platformGetTagNamespace = options.getTagNamespace || no
+
   transforms = pluckModuleFunction(options.modules, 'transformNode')
+  preTransforms = pluckModuleFunction(options.modules, 'preTransformNode')
   postTransforms = pluckModuleFunction(options.modules, 'postTransformNode')
+
   delimiters = options.delimiters
 
   const stack = []
@@ -246,13 +249,14 @@ export function parse (
       // IE textarea placeholder bug
       /* istanbul ignore if */
       if (isIE &&
-          currentParent.tag === 'textarea' &&
-          currentParent.attrsMap.placeholder === text) {
+        currentParent.tag === 'textarea' &&
+        currentParent.attrsMap.placeholder === text
+      ) {
         return
       }
       const children = currentParent.children
       text = inPre || text.trim()
-        ? decodeHTMLCached(text)
+        ? isTextTag(currentParent) ? text : decodeHTMLCached(text)
         // only preserve whitespace if its not right after a starting tag
         : preserveWhitespace && children.length ? ' ' : ''
       if (text) {
@@ -533,12 +537,20 @@ function parseModifiers (name: string): Object | void {
 function makeAttrsMap (attrs: Array<Object>): Object {
   const map = {}
   for (let i = 0, l = attrs.length; i < l; i++) {
-    if (process.env.NODE_ENV !== 'production' && map[attrs[i].name] && !isIE) {
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      map[attrs[i].name] && !isIE && !isEdge
+    ) {
       warn('duplicate attribute: ' + attrs[i].name)
     }
     map[attrs[i].name] = attrs[i].value
   }
   return map
+}
+
+// for script (e.g. type="x/template") or style, do not decode content
+function isTextTag (el): boolean {
+  return el.tag === 'script' || el.tag === 'style'
 }
 
 function isForbiddenTag (el): boolean {

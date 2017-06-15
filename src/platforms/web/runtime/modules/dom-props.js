@@ -35,7 +35,7 @@ function updateDOMProps (oldVnode: VNodeWithData, vnode: VNodeWithData) {
       // non-string values will be stringified
       elm._value = cur
       // avoid resetting cursor position when value is the same
-      const strCur = cur == null ? '' : String(cur)
+      const strCur = isUndef(cur) ? '' : String(cur)
       if (shouldUpdateValue(elm, vnode, strCur)) {
         elm.value = strCur
       }
@@ -61,7 +61,8 @@ function shouldUpdateValue (
 }
 
 function isDirty (elm: acceptValueElm, checkVal: string): boolean {
-  // return true when textbox (.number and .trim) loses focus and its value is not equal to the updated value
+  // return true when textbox (.number and .trim) loses focus and its value is
+  // not equal to the updated value
   return document.activeElement !== elm && elm.value !== checkVal
 }
 

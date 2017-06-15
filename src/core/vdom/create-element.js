@@ -61,9 +61,20 @@ export function _createElement (
     // in case of component :is set to falsy value
     return createEmptyVNode()
   }
+  // warn against non-primitive key
+  if (process.env.NODE_ENV !== 'production' &&
+    isDef(data) && isDef(data.key) && !isPrimitive(data.key)
+  ) {
+    warn(
+      'Avoid using non-primitive value as key, ' +
+      'use string/number value instead.',
+      context
+    )
+  }
   // support single function children as default scoped slot
   if (Array.isArray(children) &&
-      typeof children[0] === 'function') {
+    typeof children[0] === 'function'
+  ) {
     data = data || {}
     data.scopedSlots = { default: children[0] }
     children.length = 0
@@ -99,7 +110,7 @@ export function _createElement (
     // direct component options / constructor
     vnode = createComponent(tag, data, context, children)
   }
-  if (vnode !== undefined) {
+  if (isDef(vnode)) {
     if (ns) applyNS(vnode, ns)
     return vnode
   } else {
@@ -113,7 +124,7 @@ function applyNS (vnode, ns) {
     // use default namespace inside foreignObject
     return
   }
-  if (Array.isArray(vnode.children)) {
+  if (isDef(vnode.children)) {
     for (let i = 0, l = vnode.children.length; i < l; i++) {
       const child = vnode.children[i]
       if (isDef(child.tag) && isUndef(child.ns)) {

@@ -27,13 +27,15 @@ type RenderBundle = {
   modules?: { [filename: string]: Array<string> };
 };
 
-export function createBundleRendererCreator (createRenderer: () => Renderer) {
+export function createBundleRendererCreator (
+  createRenderer: (options?: RenderOptions) => Renderer
+) {
   return function createBundleRenderer (
     bundle: string | RenderBundle,
-    rendererOptions?: RenderOptions
+    rendererOptions?: RenderOptions = {}
   ) {
-    let files, entry, maps, moduleMappings
-    let basedir = rendererOptions && rendererOptions.basedir
+    let files, entry, maps
+    let basedir = rendererOptions.basedir
 
     // load bundle if given filepath
     if (
@@ -62,7 +64,6 @@ export function createBundleRendererCreator (createRenderer: () => Renderer) {
       files = bundle.files
       basedir = basedir || bundle.basedir
       maps = createSourceMapConsumers(bundle.maps)
-      moduleMappings = bundle.modules
       if (typeof entry !== 'string' || typeof files !== 'object') {
         throw new Error(INVALID_MSG)
       }
@@ -74,16 +75,14 @@ export function createBundleRendererCreator (createRenderer: () => Renderer) {
       throw new Error(INVALID_MSG)
     }
 
-    if (moduleMappings) {
-      rendererOptions = Object.assign({}, rendererOptions, {
-        serverManifest: {
-          modules: moduleMappings
-        }
-      })
-    }
     const renderer = createRenderer(rendererOptions)
 
-    const run = createBundleRunner(entry, files, basedir)
+    const run = createBundleRunner(
+      entry,
+      files,
+      basedir,
+      rendererOptions.runInNewContext
+    )
 
     return {
       renderToString: (context?: Object, cb: (err: ?Error, res: ?string) => void) => {
@@ -96,10 +95,10 @@ export function createBundleRendererCreator (createRenderer: () => Renderer) {
           cb(err)
         }).then(app => {
           if (app) {
-            renderer.renderToString(app, (err, res) => {
+            renderer.renderToString(app, context, (err, res) => {
               rewriteErrorTrace(err, maps)
               cb(err, res)
-            }, context)
+            })
           }
         })
       },

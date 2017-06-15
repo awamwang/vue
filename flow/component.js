@@ -42,7 +42,7 @@ declare interface Component {
   $once: (event: string, fn: Function) => Component;
   $off: (event?: string | Array<string>, fn?: Function) => Component;
   $emit: (event: string, ...args: Array<mixed>) => Component;
-  $nextTick: (fn: Function) => void;
+  $nextTick: (fn: Function) => void | Promise<*>;
   $createElement: (tag?: string | Component, data?: Object, children?: VNodeChildren) => VNode;
 
   // private properties
@@ -69,16 +69,34 @@ declare interface Component {
   _provided: ?Object;
 
   // private methods
+
   // lifecycle
   _init: Function;
   _mount: (el?: Element | void, hydrating?: boolean) => Component;
   _update: (vnode: VNode, hydrating?: boolean) => void;
+
   // rendering
   _render: () => VNode;
-  __patch__: (a: Element | VNode | void, b: VNode) => any;
+
+  __patch__: (
+    a: Element | VNode | void,
+    b: VNode,
+    hydrating?: boolean,
+    removeOnly?: boolean,
+    parentElm?: any,
+    refElm?: any
+  ) => any;
+
   // createElement
+
   // _c is internal that accepts `normalizationType` optimization hint
-  _c: (vnode?: VNode, data?: VNodeData, children?: VNodeChildren, normalizationType?: number) => VNode | void;
+  _c: (
+    vnode?: VNode,
+    data?: VNodeData,
+    children?: VNodeChildren,
+    normalizationType?: number
+  ) => VNode | void;
+
   // renderStatic
   _m: (index: number, isInFor?: boolean) => VNode | VNodeChildren;
   // markOnce
@@ -106,8 +124,18 @@ declare interface Component {
   // check custom keyCode
   _k: (eventKeyCode: number, key: string, builtInAlias: number | Array<number> | void) => boolean;
   // resolve scoped slots
-  _u: (scopedSlots: Array<[string, Function]>) => { [key: string]: Function };
+  _u: (scopedSlots: ScopedSlotsData, res?: Object) => { [key: string]: Function };
+
+  // SSR specific
+  _ssrNode: Function;
+  _ssrList: Function;
+  _ssrEscape: Function;
+  _ssrAttr: Function;
+  _ssrAttrs: Function;
+  _ssrDOMProps: Function;
+  _ssrClass: Function;
+  _ssrStyle: Function;
 
   // allow dynamic method registration
   [key: string]: any
-}
+};
