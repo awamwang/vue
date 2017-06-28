@@ -9,6 +9,8 @@ dist/vue.common.min.js
 test/e2e/reports
 test/e2e/screenshots
 coverage
+RELEASE_NOTE*.md
 .idea/
 components/
 test/vue.test.js
+
