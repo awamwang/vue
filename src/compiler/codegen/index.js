@@ -1,9 +1,9 @@
 /* @flow */
 
 import { genHandlers } from './events'
-import { baseWarn, pluckModuleFunction } from '../helpers'
 import baseDirectives from '../directives/index'
 import { camelize, no, extend } from 'shared/util'
+import { baseWarn, pluckModuleFunction } from '../helpers'
 
 type TransformFunction = (el: ASTElement, code: string) => string;
 type DataGenFunction = (el: ASTElement) => string;
@@ -89,7 +89,11 @@ export function genElement (el: ASTElement, state: CodegenState): string {
 function genStatic (el: ASTElement, state: CodegenState): string {
   el.staticProcessed = true
   state.staticRenderFns.push(`with(this){return ${genElement(el, state)}}`)
-  return `_m(${state.staticRenderFns.length - 1}${el.staticInFor ? ',true' : ''})`
+  return `_m(${
+    state.staticRenderFns.length - 1
+  }${
+    el.staticInFor ? ',true' : ''
+  })`
 }
 
 // v-once
@@ -113,7 +117,7 @@ function genOnce (el: ASTElement, state: CodegenState): string {
       )
       return genElement(el, state)
     }
-    return `_o(${genElement(el, state)},${state.onceId++}${key ? `,${key}` : ``})`
+    return `_o(${genElement(el, state)},${state.onceId++},${key})`
   } else {
     return genStatic(el, state)
   }
@@ -239,7 +243,8 @@ export function genData (el: ASTElement, state: CodegenState): string {
     data += `${genHandlers(el.nativeEvents, true, state.warn)},`
   }
   // slot target
-  if (el.slotTarget) {
+  // only for non-scoped slots
+  if (el.slotTarget && !el.slotScope) {
     data += `slot:${el.slotTarget},`
   }
   // scoped slots
@@ -267,6 +272,10 @@ export function genData (el: ASTElement, state: CodegenState): string {
   // v-bind data wrap
   if (el.wrapData) {
     data = el.wrapData(data)
+  }
+  // v-on data wrap
+  if (el.wrapListeners) {
+    data = el.wrapListeners(data)
   }
   return data
 }
@@ -305,7 +314,7 @@ function genDirectives (el: ASTElement, state: CodegenState): string | void {
 function genInlineTemplate (el: ASTElement, state: CodegenState): ?string {
   const ast = el.children[0]
   if (process.env.NODE_ENV !== 'production' && (
-    el.children.length > 1 || ast.type !== 1
+    el.children.length !== 1 || ast.type !== 1
   )) {
     state.warn('Inline-template components must have exactly one child element.')
   }
@@ -338,11 +347,14 @@ function genScopedSlot (
   if (el.for && !el.forProcessed) {
     return genForScopedSlot(key, el, state)
   }
-  return `{key:${key},fn:function(${String(el.attrsMap.scope)}){` +
+  const fn = `function(${String(el.slotScope)}){` +
     `return ${el.tag === 'template'
-      ? genChildren(el, state) || 'void 0'
+      ? el.if
+        ? `${el.if}?${genChildren(el, state) || 'undefined'}:undefined`
+        : genChildren(el, state) || 'undefined'
       : genElement(el, state)
-  }}}`
+    }}`
+  return `{key:${key},fn:${fn}}`
 }
 
 function genForScopedSlot (
@@ -423,6 +435,8 @@ function needsNormalization (el: ASTElement): boolean {
 function genNode (node: ASTNode, state: CodegenState): string {
   if (node.type === 1) {
     return genElement(node, state)
+  } if (node.type === 3 && node.isComment) {
+    return genComment(node)
   } else {
     return genText(node)
   }
@@ -433,6 +447,10 @@ export function genText (text: ASTText | ASTExpression): string {
     ? text.expression // no need for () because already wrapped in _s()
     : transformSpecialNewlines(JSON.stringify(text.text))
   })`
+}
+
+export function genComment (comment: ASTText): string {
+  return `_e(${JSON.stringify(comment.text)})`
 }
 
 function genSlot (el: ASTElement, state: CodegenState): string {
@@ -465,13 +483,26 @@ function genComponent (
   })`
 }
 
-function genProps (props: Array<{ name: string, value: string }>): string {
+function genProps (props: Array<{ name: string, value: any }>): string {
   let res = ''
   for (let i = 0; i < props.length; i++) {
     const prop = props[i]
-    res += `"${prop.name}":${transformSpecialNewlines(prop.value)},`
+    /* istanbul ignore if */
+    if (__WEEX__) {
+      res += `"${prop.name}":${generateValue(prop.value)},`
+    } else {
+      res += `"${prop.name}":${transformSpecialNewlines(prop.value)},`
+    }
   }
   return res.slice(0, -1)
+}
+
+/* istanbul ignore next */
+function generateValue (value) {
+  if (typeof value === 'string') {
+    return transformSpecialNewlines(value)
+  }
+  return JSON.stringify(value)
 }
 
 // #3895, #4268

@@ -1,5 +1,7 @@
 /* @flow */
 
+export const emptyObject = Object.freeze({})
+
 // these helpers produces better vm code in JS engines due to their
 // explicitness and function inlining
 export function isUndef (v: any): boolean %checks {
@@ -17,11 +19,18 @@ export function isTrue (v: any): boolean %checks {
 export function isFalse (v: any): boolean %checks {
   return v === false
 }
+
 /**
  * Check if value is primitive
  */
 export function isPrimitive (value: any): boolean %checks {
-  return typeof value === 'string' || typeof value === 'number'
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    // $flow-disable-line
+    typeof value === 'symbol' ||
+    typeof value === 'boolean'
+  )
 }
 
 /**
@@ -33,7 +42,14 @@ export function isObject (obj: mixed): boolean %checks {
   return obj !== null && typeof obj === 'object'
 }
 
+/**
+ * Get the raw type string of a value e.g. [object Object]
+ */
 const _toString = Object.prototype.toString
+
+export function toRawType (value: any): string {
+  return _toString.call(value).slice(8, -1)
+}
 
 /**
  * Strict object type check. Only returns true
@@ -45,6 +61,14 @@ export function isPlainObject (obj: any): boolean {
 
 export function isRegExp (v: any): boolean {
   return _toString.call(v) === '[object RegExp]'
+}
+
+/**
+ * Check if val is a valid array index.
+ */
+export function isValidArrayIndex (val: any): boolean {
+  const n = parseFloat(String(val))
+  return n >= 0 && Math.floor(n) === n && isFinite(val)
 }
 
 /**
@@ -93,7 +117,7 @@ export const isBuiltInTag = makeMap('slot,component', true)
 /**
  * Check if a attribute is a reserved attribute.
  */
-export const isReservedAttribute = makeMap('key,ref,slot,is')
+export const isReservedAttribute = makeMap('key,ref,slot,slot-scope,is')
 
 /**
  * Remove an item from an array
@@ -144,30 +168,41 @@ export const capitalize = cached((str: string): string => {
 /**
  * Hyphenate a camelCase string.
  */
-const hyphenateRE = /([^-])([A-Z])/g
+const hyphenateRE = /\B([A-Z])/g
 export const hyphenate = cached((str: string): string => {
-  return str
-    .replace(hyphenateRE, '$1-$2')
-    .replace(hyphenateRE, '$1-$2')
-    .toLowerCase()
+  return str.replace(hyphenateRE, '-$1').toLowerCase()
 })
 
 /**
- * Simple bind, faster than native
+ * Simple bind polyfill for environments that do not support it... e.g.
+ * PhantomJS 1.x. Technically we don't need this anymore since native bind is
+ * now more performant in most browsers, but removing it would be breaking for
+ * code that was able to run in PhantomJS 1.x, so this must be kept for
+ * backwards compatibility.
  */
-export function bind (fn: Function, ctx: Object): Function {
+
+/* istanbul ignore next */
+function polyfillBind (fn: Function, ctx: Object): Function {
   function boundFn (a) {
-    const l: number = arguments.length
+    const l = arguments.length
     return l
       ? l > 1
         ? fn.apply(ctx, arguments)
         : fn.call(ctx, a)
       : fn.call(ctx)
   }
-  // record original fn length
+
   boundFn._length = fn.length
   return boundFn
 }
+
+function nativeBind (fn: Function, ctx: Object): Function {
+  return fn.bind(ctx)
+}
+
+export const bind = Function.prototype.bind
+  ? nativeBind
+  : polyfillBind
 
 /**
  * Convert an Array-like object to a real Array.
@@ -235,15 +270,31 @@ export function genStaticKeys (modules: Array<ModuleOptions>): string {
  * Check if two values are loosely equal - that is,
  * if they are plain objects, do they have the same shape?
  */
-export function looseEqual (a: mixed, b: mixed): boolean {
+export function looseEqual (a: any, b: any): boolean {
+  if (a === b) return true
   const isObjectA = isObject(a)
   const isObjectB = isObject(b)
   if (isObjectA && isObjectB) {
     try {
-      return JSON.stringify(a) === JSON.stringify(b)
+      const isArrayA = Array.isArray(a)
+      const isArrayB = Array.isArray(b)
+      if (isArrayA && isArrayB) {
+        return a.length === b.length && a.every((e, i) => {
+          return looseEqual(e, b[i])
+        })
+      } else if (!isArrayA && !isArrayB) {
+        const keysA = Object.keys(a)
+        const keysB = Object.keys(b)
+        return keysA.length === keysB.length && keysA.every(key => {
+          return looseEqual(a[key], b[key])
+        })
+      } else {
+        /* istanbul ignore next */
+        return false
+      }
     } catch (e) {
-      // possible circular reference
-      return a === b
+      /* istanbul ignore next */
+      return false
     }
   } else if (!isObjectA && !isObjectB) {
     return String(a) === String(b)

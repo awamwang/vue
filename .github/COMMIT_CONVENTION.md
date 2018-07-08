@@ -1,19 +1,27 @@
 ## Git Commit Message Convention
 
-> This is adapted from [Angular's commit convention](https://github.com/conventional-changelog/conventional-changelog/blob/master/packages/conventional-changelog-angular/convention.md).
+> This is adapted from [Angular's commit convention](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular).
+
+#### TL;DR:
+
+Messages must be matched by the following regex:
+
+``` js
+/^(revert: )?(feat|fix|polish|docs|style|refactor|perf|test|workflow|ci|chore|types)(\(.+\))?: .{1,50}/
+```
 
 #### Examples
 
-Appears under "Features" header, pencil subheader:
+Appears under "Features" header, `compiler` subheader:
 
 ```
-feat(pencil): add 'graphiteWidth' option
+feat(compiler): add 'comments' option
 ```
 
-Appears under "Bug Fixes" header, graphite subheader, with a link to issue #28:
+Appears under "Bug Fixes" header, `v-model` subheader, with a link to issue #28:
 
 ```
-fix(graphite): stop graphite breaking when width < 0.1
+fix(v-model): handle events on blur
 
 close #28
 ```
@@ -21,15 +29,15 @@ close #28
 Appears under "Performance Improvements" header, and under "Breaking Changes" with the breaking change explanation:
 
 ```
-perf(pencil): remove graphiteWidth option
+perf(core): improve vdom diffing by removing 'foo' option
 
-BREAKING CHANGE: The graphiteWidth option has been removed. The default graphite width of 10mm is always used for performance reason.
+BREAKING CHANGE: The 'foo' option has been removed.
 ```
 
 The following commit and commit `667ecc1` do not appear in the changelog if they are under the same release. If not, the revert commit appears under the "Reverts" header.
 
 ```
-revert: feat(pencil): add 'graphiteWidth' option
+revert: feat(compiler): add 'comments' option
 
 This reverts commit 667ecc1654a317a13331b17617d973392f415f02.
 ```
