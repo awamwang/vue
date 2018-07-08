@@ -8,21 +8,25 @@ export default class VNode {
   elm: Node | void;
   ns: string | void;
   context: Component | void; // rendered in this component's scope
-  functionalContext: Component | void; // only for functional component root nodes
   key: string | number | void;
   componentOptions: VNodeComponentOptions | void;
   componentInstance: Component | void; // component instance
   parent: VNode | void; // component placeholder node
+
+  // strictly internal
   raw: boolean; // contains raw HTML? (server only)
   isStatic: boolean; // hoisted static node
   isRootInsert: boolean; // necessary for enter transition check
   isComment: boolean; // empty comment placeholder?
   isCloned: boolean; // is a cloned node?
   isOnce: boolean; // is a v-once node?
-  asyncFactory: ?Function; // async component factory function
-  asyncMeta: ?Object;
+  asyncFactory: Function | void; // async component factory function
+  asyncMeta: Object | void;
   isAsyncPlaceholder: boolean;
-  ssrContext: ?Object;
+  ssrContext: Object | void;
+  fnContext: Component | void; // real context vm for functional nodes
+  fnOptions: ?ComponentOptions; // for SSR caching
+  fnScopeId: ?string; // functional scope id support
 
   constructor (
     tag?: string,
@@ -41,7 +45,9 @@ export default class VNode {
     this.elm = elm
     this.ns = undefined
     this.context = context
-    this.functionalContext = undefined
+    this.fnContext = undefined
+    this.fnOptions = undefined
+    this.fnScopeId = undefined
     this.key = data && data.key
     this.componentOptions = componentOptions
     this.componentInstance = undefined
@@ -64,9 +70,9 @@ export default class VNode {
   }
 }
 
-export const createEmptyVNode = () => {
+export const createEmptyVNode = (text: string = '') => {
   const node = new VNode()
-  node.text = ''
+  node.text = text
   node.isComment = true
   return node
 }
@@ -87,21 +93,17 @@ export function cloneVNode (vnode: VNode): VNode {
     vnode.text,
     vnode.elm,
     vnode.context,
-    vnode.componentOptions
+    vnode.componentOptions,
+    vnode.asyncFactory
   )
   cloned.ns = vnode.ns
   cloned.isStatic = vnode.isStatic
   cloned.key = vnode.key
   cloned.isComment = vnode.isComment
+  cloned.fnContext = vnode.fnContext
+  cloned.fnOptions = vnode.fnOptions
+  cloned.fnScopeId = vnode.fnScopeId
+  cloned.asyncMeta = vnode.asyncMeta
   cloned.isCloned = true
   return cloned
-}
-
-export function cloneVNodes (vnodes: Array<VNode>): Array<VNode> {
-  const len = vnodes.length
-  const res = new Array(len)
-  for (let i = 0; i < len; i++) {
-    res[i] = cloneVNode(vnodes[i])
-  }
-  return res
 }

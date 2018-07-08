@@ -8,10 +8,7 @@ import { def } from '../util/index'
 const arrayProto = Array.prototype
 export const arrayMethods = Object.create(arrayProto)
 
-/**
- * Intercept mutating methods and emit events
- */
-;[
+const methodsToPatch = [
   'push',
   'pop',
   'shift',
@@ -20,7 +17,11 @@ export const arrayMethods = Object.create(arrayProto)
   'sort',
   'reverse'
 ]
-.forEach(function (method) {
+
+/**
+ * Intercept mutating methods and emit events
+ */
+methodsToPatch.forEach(function (method) {
   // cache original method
   const original = arrayProto[method]
   def(arrayMethods, method, function mutator (...args) {
@@ -29,8 +30,6 @@ export const arrayMethods = Object.create(arrayProto)
     let inserted
     switch (method) {
       case 'push':
-        inserted = args
-        break
       case 'unshift':
         inserted = args
         break

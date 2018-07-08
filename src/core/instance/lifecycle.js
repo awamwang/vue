@@ -4,9 +4,10 @@ import config from '../config'
 import Watcher from '../observer/watcher'
 import { mark, measure } from '../util/perf'
 import { createEmptyVNode } from '../vdom/vnode'
-import { observerState } from '../observer/index'
 import { updateComponentListeners } from './events'
 import { resolveSlots } from './render-helpers/resolve-slots'
+import { toggleObserving } from '../observer/index'
+import { pushTarget, popTarget } from '../observer/dep'
 
 import {
   warn,
@@ -18,6 +19,7 @@ import {
 } from '../util/index'
 
 export let activeInstance: any = null
+export let isUpdatingChildComponent: boolean = false
 
 export function initLifecycle (vm: Component) {
   const options = vm.$options
@@ -48,9 +50,6 @@ export function initLifecycle (vm: Component) {
 export function lifecycleMixin (Vue: Class<Component>) {
   Vue.prototype._update = function (vnode: VNode, hydrating?: boolean) {
     const vm: Component = this
-    if (vm._isMounted) {
-      callHook(vm, 'beforeUpdate')
-    }
     const prevEl = vm.$el
     const prevVnode = vm._vnode
     const prevActiveInstance = activeInstance
@@ -60,14 +59,7 @@ export function lifecycleMixin (Vue: Class<Component>) {
     // based on the rendering backend used.
     if (!prevVnode) {
       // initial render
-      vm.$el = vm.__patch__(
-        vm.$el, vnode, hydrating, false /* removeOnly */,
-        vm.$options._parentElm,
-        vm.$options._refElm
-      )
-      // no need for the ref nodes after initial patch
-      // this prevents keeping a detached DOM tree in memory (#5851)
-      vm.$options._parentElm = vm.$options._refElm = null
+      vm.$el = vm.__patch__(vm.$el, vnode, hydrating, false /* removeOnly */)
     } else {
       // updates
       vm.$el = vm.__patch__(prevVnode, vnode)
@@ -132,6 +124,10 @@ export function lifecycleMixin (Vue: Class<Component>) {
     if (vm.$el) {
       vm.$el.__vue__ = null
     }
+    // release circular reference (#6759)
+    if (vm.$vnode) {
+      vm.$vnode.parent = null
+    }
   }
 }
 
@@ -175,12 +171,12 @@ export function mountComponent (
       mark(startTag)
       const vnode = vm._render()
       mark(endTag)
-      measure(`${name} render`, startTag, endTag)
+      measure(`vue ${name} render`, startTag, endTag)
 
       mark(startTag)
       vm._update(vnode, hydrating)
       mark(endTag)
-      measure(`${name} patch`, startTag, endTag)
+      measure(`vue ${name} patch`, startTag, endTag)
     }
   } else {
     updateComponent = () => {
@@ -188,7 +184,16 @@ export function mountComponent (
     }
   }
 
-  vm._watcher = new Watcher(vm, updateComponent, noop)
+  // we set this to vm._watcher inside the watcher's constructor
+  // since the watcher's initial patch may call $forceUpdate (e.g. inside child
+  // component's mounted hook), which relies on vm._watcher being already defined
+  new Watcher(vm, updateComponent, noop, {
+    before () {
+      if (vm._isMounted) {
+        callHook(vm, 'beforeUpdate')
+      }
+    }
+  }, true /* isRenderWatcher */)
   hydrating = false
 
   // manually mounted instance, call mounted on self
@@ -204,9 +209,13 @@ export function updateChildComponent (
   vm: Component,
   propsData: ?Object,
   listeners: ?Object,
-  parentVnode: VNode,
+  parentVnode: MountedComponentVNode,
   renderChildren: ?Array<VNode>
 ) {
+  if (process.env.NODE_ENV !== 'production') {
+    isUpdatingChildComponent = true
+  }
+
   // determine whether component has slot children
   // we need to do this before overwriting $options._renderChildren
   const hasChildren = !!(
@@ -218,40 +227,47 @@ export function updateChildComponent (
 
   vm.$options._parentVnode = parentVnode
   vm.$vnode = parentVnode // update vm's placeholder node without re-render
+
   if (vm._vnode) { // update child tree's parent
     vm._vnode.parent = parentVnode
   }
   vm.$options._renderChildren = renderChildren
 
+  // update $attrs and $listeners hash
+  // these are also reactive so they may trigger child update if the child
+  // used them during render
+  vm.$attrs = parentVnode.data.attrs || emptyObject
+  vm.$listeners = listeners || emptyObject
+
   // update props
   if (propsData && vm.$options.props) {
-    observerState.shouldConvert = false
-    if (process.env.NODE_ENV !== 'production') {
-      observerState.isSettingProps = true
-    }
+    toggleObserving(false)
     const props = vm._props
     const propKeys = vm.$options._propKeys || []
     for (let i = 0; i < propKeys.length; i++) {
       const key = propKeys[i]
-      props[key] = validateProp(key, vm.$options.props, propsData, vm)
+      const propOptions: any = vm.$options.props // wtf flow?
+      props[key] = validateProp(key, propOptions, propsData, vm)
     }
-    observerState.shouldConvert = true
-    if (process.env.NODE_ENV !== 'production') {
-      observerState.isSettingProps = false
-    }
+    toggleObserving(true)
     // keep a copy of raw propsData
     vm.$options.propsData = propsData
   }
+
   // update listeners
-  if (listeners) {
-    const oldListeners = vm.$options._parentListeners
-    vm.$options._parentListeners = listeners
-    updateComponentListeners(vm, listeners, oldListeners)
-  }
+  listeners = listeners || emptyObject
+  const oldListeners = vm.$options._parentListeners
+  vm.$options._parentListeners = listeners
+  updateComponentListeners(vm, listeners, oldListeners)
+
   // resolve slots + force update if has children
   if (hasChildren) {
     vm.$slots = resolveSlots(renderChildren, parentVnode.context)
     vm.$forceUpdate()
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    isUpdatingChildComponent = false
   }
 }
 
@@ -297,6 +313,8 @@ export function deactivateChildComponent (vm: Component, direct?: boolean) {
 }
 
 export function callHook (vm: Component, hook: string) {
+  // #7573 disable dep collection when invoking lifecycle hooks
+  pushTarget()
   const handlers = vm.$options[hook]
   if (handlers) {
     for (let i = 0, j = handlers.length; i < j; i++) {
@@ -310,4 +328,5 @@ export function callHook (vm: Component, hook: string) {
   if (vm._hasHookEvent) {
     vm.$emit('hook:' + hook)
   }
+  popTarget()
 }
