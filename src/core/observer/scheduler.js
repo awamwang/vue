@@ -51,6 +51,7 @@ function flushSchedulerQueue () {
 
   // do not cache length because more watchers might be pushed
   // as we run existing watchers
+  // 允许queue在执行过程中动态改变，这样的话应该只有id更后的watcher才会在本轮flush执行，id靠前的只能等下一轮
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index]
     if (watcher.before) {

@@ -26,7 +26,7 @@ export default class Watcher {
   vm: Component;
   expression: string;
   cb: Function;
-  id: number;
+  id: number;   // Watcher的scheduler基于id实现调度
   deep: boolean;
   user: boolean;
   lazy: boolean;
@@ -224,7 +224,7 @@ export default class Watcher {
   /**
    * Remove self from all dependencies' subscriber list.
    */
-  teardown () {
+  teardown () {   // 只有在生命周期destory和手动调用的时候Watcher才会teardown
     if (this.active) {
       // remove self from vm's watcher list
       // this is a somewhat expensive operation so we skip it

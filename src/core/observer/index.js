@@ -152,7 +152,7 @@ export function defineReactive (
     val = obj[key]
   }
 
-  let childOb = !shallow && observe(val)
+  let childOb = !shallow && observe(val)  // 基本就是递归的defineReactive
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
