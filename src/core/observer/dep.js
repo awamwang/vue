@@ -52,9 +52,9 @@ export default class Dep {
 // the current target watcher being evaluated.
 // this is globally unique because there could be only one
 // watcher being evaluated at any time.
-Dep.target = null // 这个target是全局，是一个Watcher类型，只有调用pushTarget、popTarget的时候会挂上
+Dep.target = null // 这个target是全局，是一个Watcher类型，只有调用pushTarget、popTarget的时候会挂上，实际上只有watcher在执行get时候才把Watcher自己推到target上
 // Dep的depend方法只有Dep.target存在的时候才有意义，所以depend方法要与pushTarget/popTarget配套出现
-const targetStack = []
+const targetStack = [] // // Dep通过uid维持了一个顺序性，又通过statck维持了全局唯一和顺序
 
 export function pushTarget (_target: ?Watcher) {
   // 如果有当前target，先让它入站；然后让当前的target变成传入的

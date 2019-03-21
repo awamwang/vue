@@ -21,10 +21,10 @@ declare interface Component {
 
   // public properties
   $el: any; // so that we can attach __vue__ to it
-  $data: Object;
+  $data: Object;  // class,staticClass,attrs,hook,ref,routerView? 哪个过程分析出来
   $props: Object;
   $options: ComponentOptions;
-  $parent: Component | void;
+  $parent: Component | void;  // 父级组件。指定已创建的实例之父实例，在两者之间建立父子关系
   $root: Component;
   $children: Array<Component>;
   $refs: { [key: string]: Component | Element | Array<Component | Element> | void };

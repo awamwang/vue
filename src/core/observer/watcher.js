@@ -98,7 +98,7 @@ export default class Watcher {
    * Evaluate the getter, and re-collect dependencies.
    */
   get () {
-    pushTarget(this)
+    pushTarget(this)  // 每次获取值得时候，触发Dep收集自己为sub
     let value
     const vm = this.vm
     try {
@@ -175,6 +175,7 @@ export default class Watcher {
    * Scheduler job interface.
    * Will be called by the scheduler.
    */
+  // Wathcer真正的计算步骤this.cb.call(this.vm, value, oldValue)，执行用户传入的回调，即watch:{}
   run () {
     if (this.active) {
       const value = this.get()
