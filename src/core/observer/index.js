@@ -43,8 +43,8 @@ export class Observer {
     this.value = value
     this.dep = new Dep()
     this.vmCount = 0
-    def(value, '__ob__', this)
-    if (Array.isArray(value)) {
+    def(value, '__ob__', this)  // 每个属性的__ob__就是它对应的Observer对象
+    if (Array.isArray(value)) { // 给Array添加变异方法
       if (hasProto) {
         protoAugment(value, arrayMethods)
       } else {
@@ -107,9 +107,9 @@ function copyAugment (target: Object, src: Object, keys: Array<string>) {
  * returns the new observer if successfully observed,
  * or the existing observer if the value already has one.
  */
-// data、prop都建立对应的Observer；还有其他调用defineReactive定义的key
+// data、prop都建立对应的Observer；还有其他调用defineReactive定义的value
 // Observer是一个具有dep，（this.value = value）的每个属性都defineReactive的对象
-// initState时候data都建立asRootData的Observer
+// initState时候data、prop的第一层，asRootData参数为true
 export function observe (value: any, asRootData: ?boolean): Observer | void {
   if (!isObject(value) || value instanceof VNode) {
     return
@@ -126,7 +126,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
   ) {
     ob = new Observer(value)
   }
-  if (asRootData && ob) {
+  if (asRootData && ob) { // 大于1，则被多个vm观察，asRootData是data、prop本身
     ob.vmCount++
   }
   return ob
@@ -156,7 +156,7 @@ export function defineReactive (
     val = obj[key]
   }
 
-  let childOb = !shallow && observe(val)  // 基本就是递归的defineReactive
+  let childOb = !shallow && observe(val)  // 生成一个Observer对象
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
@@ -217,7 +217,7 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     return val
   }
   const ob = (target: any).__ob__
-  if (target._isVue || (ob && ob.vmCount)) {
+  if (target._isVue || (ob && ob.vmCount)) {  // 如果传入的是vm._data，则ob有值
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
       'at runtime - declare it upfront in the data option.'

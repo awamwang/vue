@@ -752,15 +752,21 @@ class Dep {
 // The current target watcher being evaluated.
 // This is globally unique because only one watcher
 // can be evaluated at a time.
-Dep.target = null;
-const targetStack = [];
+Dep.target = null; // 这个target是全局，是一个Watcher类型，只有调用pushTarget、popTarget的时候会挂上，实际上只有watcher在执行get时候才把Watcher自己推到target上
+// Dep的depend方法只有Dep.target存在的时候才有意义，所以depend方法要与pushTarget/popTarget配套出现
+const targetStack = []; // // Dep通过uid维持了一个顺序性，又通过statck维持了全局唯一和顺序
 
 function pushTarget (target) {
+  // 如果有当前target，先让它入栈；然后让当前的target变成传入的
+  // 在lifecycle.callHook、initData时都是先调用pushTarget()，不传参，过程结束后再popTarget()——这样的效果就是depend没有实际效果（所谓'disable dep collection'）
+  // 在Watcher计算的时候(get)，会把自己（watcher）传进来，计算结束后同样调用popTarget()，并且调用cleanupDeps把watcher记录的deps结算一下
+  // 总结：Watcher在计算的时候Dep.target会设置为自身，操作完会pop一个栈内的target出来，这样就实现了一个全局的target(Watcher)计算栈
   targetStack.push(target);
   Dep.target = target;
 }
 
 function popTarget () {
+  // 将栈顶的target(Watcher)pop成当前的
   targetStack.pop();
   Dep.target = targetStack[targetStack.length - 1];
 }
@@ -952,8 +958,8 @@ class Observer {
     this.value = value;
     this.dep = new Dep();
     this.vmCount = 0;
-    def(value, '__ob__', this);
-    if (Array.isArray(value)) {
+    def(value, '__ob__', this);  // 每个属性的__ob__就是它对应的Observer对象
+    if (Array.isArray(value)) { // 给Array添加变异方法
       if (hasProto) {
         protoAugment(value, arrayMethods);
       } else {
@@ -973,7 +979,7 @@ class Observer {
   walk (obj) {
     const keys = Object.keys(obj);
     for (let i = 0; i < keys.length; i++) {
-      defineReactive$$1(obj, keys[i]);
+      defineReactive(obj, keys[i]);
     }
   }
 
@@ -1016,6 +1022,9 @@ function copyAugment (target, src, keys) {
  * returns the new observer if successfully observed,
  * or the existing observer if the value already has one.
  */
+// data、prop都建立对应的Observer；还有其他调用defineReactive定义的key
+// Observer是一个具有dep，（this.value = value）的每个属性都defineReactive的对象
+// initState时候data、prop的第一层，asRootData参数为true
 function observe (value, asRootData) {
   if (!isObject(value) || value instanceof VNode) {
     return
@@ -1032,7 +1041,7 @@ function observe (value, asRootData) {
   ) {
     ob = new Observer(value);
   }
-  if (asRootData && ob) {
+  if (asRootData && ob) { // 被多个vm观察的属性
     ob.vmCount++;
   }
   return ob
@@ -1041,7 +1050,7 @@ function observe (value, asRootData) {
 /**
  * Define a reactive property on an Object.
  */
-function defineReactive$$1 (
+function defineReactive (
   obj,
   key,
   val,
@@ -1062,7 +1071,7 @@ function defineReactive$$1 (
     val = obj[key];
   }
 
-  let childOb = !shallow && observe(val);
+  let childOb = !shallow && observe(val);  // 生成一个Observer对象
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
@@ -1133,7 +1142,7 @@ function set (target, key, val) {
     target[key] = val;
     return val
   }
-  defineReactive$$1(ob.value, key, val);
+  defineReactive(ob.value, key, val);
   ob.dep.notify();
   return val
 }
@@ -1526,9 +1535,9 @@ function normalizeDirectives (options) {
   const dirs = options.directives;
   if (dirs) {
     for (const key in dirs) {
-      const def$$1 = dirs[key];
-      if (typeof def$$1 === 'function') {
-        dirs[key] = { bind: def$$1, update: def$$1 };
+      const def = dirs[key];
+      if (typeof def === 'function') {
+        dirs[key] = { bind: def, update: def };
       }
     }
   }
@@ -2188,13 +2197,13 @@ function _traverse (val, seen) {
 const normalizeEvent = cached((name) => {
   const passive = name.charAt(0) === '&';
   name = passive ? name.slice(1) : name;
-  const once$$1 = name.charAt(0) === '~'; // Prefixed last, checked first
-  name = once$$1 ? name.slice(1) : name;
+  const once = name.charAt(0) === '~'; // Prefixed last, checked first
+  name = once ? name.slice(1) : name;
   const capture = name.charAt(0) === '!';
   name = capture ? name.slice(1) : name;
   return {
     name,
-    once: once$$1,
+    once,
     capture,
     passive
   }
@@ -2221,13 +2230,13 @@ function updateListeners (
   on,
   oldOn,
   add,
-  remove$$1,
+  remove,
   createOnceHandler,
   vm
 ) {
-  let name, def$$1, cur, old, event;
+  let name, def, cur, old, event;
   for (name in on) {
-    def$$1 = cur = on[name];
+    def = cur = on[name];
     old = oldOn[name];
     event = normalizeEvent(name);
     if (isUndef(cur)) {
@@ -2251,7 +2260,7 @@ function updateListeners (
   for (name in oldOn) {
     if (isUndef(on[name])) {
       event = normalizeEvent(name);
-      remove$$1(event.name, oldOn[name], event.capture);
+      remove(event.name, oldOn[name], event.capture);
     }
   }
 }
@@ -2456,14 +2465,14 @@ function initProvide (vm) {
   }
 }
 
-function initInjections (vm) {
+function initInjections (vm) {  // Observer暂时关闭，把injection通过defineReactive定义到vm的相应key上
   const result = resolveInject(vm.$options.inject, vm);
   if (result) {
     toggleObserving(false);
     Object.keys(result).forEach(key => {
       /* istanbul ignore else */
       {
-        defineReactive$$1(vm, key, result[key], () => {
+        defineReactive(vm, key, result[key], () => {
           warn(
             `Avoid mutating an injected value directly since the changes will be ` +
             `overwritten whenever the provided component re-renders. ` +
@@ -3518,10 +3527,10 @@ function initRender (vm) {
 
   /* istanbul ignore else */
   {
-    defineReactive$$1(vm, '$attrs', parentData && parentData.attrs || emptyObject, () => {
+    defineReactive(vm, '$attrs', parentData && parentData.attrs || emptyObject, () => {
       !isUpdatingChildComponent && warn(`$attrs is readonly.`, vm);
     }, true);
-    defineReactive$$1(vm, '$listeners', options._parentListeners || emptyObject, () => {
+    defineReactive(vm, '$listeners', options._parentListeners || emptyObject, () => {
       !isUpdatingChildComponent && warn(`$listeners is readonly.`, vm);
     }, true);
   }
@@ -3926,7 +3935,7 @@ function initLifecycle (vm) {
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent;
     }
-    parent.$children.push(vm);
+    parent.$children.push(vm);   // 把实例挂到对应的父节点上
   }
 
   vm.$parent = parent;
@@ -4312,6 +4321,7 @@ function flushSchedulerQueue () {
 
   // do not cache length because more watchers might be pushed
   // as we run existing watchers
+  // 允许queue在执行过程中动态改变，这样的话应该只有id更后的watcher才会在本轮flush执行，id靠前的只能等下一轮
   for (index = 0; index < queue.length; index++) {
     watcher = queue[index];
     if (watcher.before) {
@@ -4420,7 +4430,7 @@ function queueWatcher (watcher) {
 
 
 
-let uid$2 = 0;
+let uid$1 = 0;
 
 /**
  * A watcher parses an expression, collects dependencies,
@@ -4431,7 +4441,7 @@ class Watcher {
   
   
   
-  
+     // Watcher的scheduler基于id实现调度
   
   
   
@@ -4469,7 +4479,7 @@ class Watcher {
       this.deep = this.user = this.lazy = this.sync = false;
     }
     this.cb = cb;
-    this.id = ++uid$2; // uid for batching
+    this.id = ++uid$1; // uid for batching
     this.active = true;
     this.dirty = this.lazy; // for lazy watchers
     this.deps = [];
@@ -4498,14 +4508,14 @@ class Watcher {
   }
 
   /**
-   * Evaluate the getter, and re-collect dependencies.
+   * Evaluate the getter, and re-collect dependencies.  // 计算这个watcher，重新收集它依赖的订阅器
    */
   get () {
-    pushTarget(this);
+    pushTarget(this);  // 每次获取值得时候，使Dep的depend生效，使Dep可以调用这个watcher把dep添加为依赖（给自己添加了一个对应的订阅器）；新添的在newDeps中
     let value;
     const vm = this.vm;
     try {
-      value = this.getter.call(vm, vm);
+      value = this.getter.call(vm, vm);  // 这个操作会触发相应的那个key（用户定义的）所产生的defineReactive中的dep对当前Watcher执行depend
     } catch (e) {
       if (this.user) {
         handleError(e, vm, `getter for watcher "${this.expression}"`);
@@ -4516,7 +4526,7 @@ class Watcher {
       // "touch" every property so they are all tracked as
       // dependencies for deep watching
       if (this.deep) {
-        traverse(value);
+        traverse(value);   // 遍历对象，生成一个依赖的dep的Set（不重复）
       }
       popTarget();
       this.cleanupDeps();
@@ -4525,15 +4535,15 @@ class Watcher {
   }
 
   /**
-   * Add a dependency to this directive.
+   * Add a dependency to this directive.   // 一方面，把这个传入的dep添加到依赖队列；另一方面，如果自己不在传入的dep的订阅者队列中，要加进去（是双方向的）
    */
   addDep (dep) {
     const id = dep.id;
-    if (!this.newDepIds.has(id)) {
+    if (!this.newDepIds.has(id)) {  // watcher维护的这个订阅队列，仅仅是检查增减，找出需要操作的dep；增了，要添加新增dep的订阅，减了，要取消对应dep的订阅
       this.newDepIds.add(id);
       this.newDeps.push(dep);
       if (!this.depIds.has(id)) {
-        dep.addSub(this);
+        dep.addSub(this);  // 触发订阅
       }
     }
   }
@@ -4541,7 +4551,7 @@ class Watcher {
   /**
    * Clean up for dependency collection.
    */
-  cleanupDeps () {
+  cleanupDeps () {  // 如果新的依赖列表中不在存在某个dep，就叫这个dep不在通知当前Watcher（取消订阅）
     let i = this.deps.length;
     while (i--) {
       const dep = this.deps[i];
@@ -4549,6 +4559,7 @@ class Watcher {
         dep.removeSub(this);
       }
     }
+    // 用完了把新的变为当前的，把新的清空，准备下一次收集
     let tmp = this.depIds;
     this.depIds = this.newDepIds;
     this.newDepIds = tmp;
@@ -4563,14 +4574,14 @@ class Watcher {
    * Subscriber interface.
    * Will be called when a dependency changes.
    */
-  update () {
+  update () { // 代码注释也说了，这个是订阅者模式的update接口，dep发布notify，watcher就更新
     /* istanbul ignore else */
-    if (this.lazy) {
+    if (this.lazy) {  // 懒执行，只标记为脏
       this.dirty = true;
-    } else if (this.sync) {
+    } else if (this.sync) { // 同步执行
       this.run();
     } else {
-      queueWatcher(this);
+      queueWatcher(this);  // 异步队列中执行，加入队列，在nextTick执行flush
     }
   }
 
@@ -4578,6 +4589,7 @@ class Watcher {
    * Scheduler job interface.
    * Will be called by the scheduler.
    */
+  // Wathcer真正的计算步骤this.cb.call(this.vm, value, oldValue)，执行用户传入的回调，即watch:{}
   run () {
     if (this.active) {
       const value = this.get();
@@ -4615,7 +4627,7 @@ class Watcher {
   }
 
   /**
-   * Depend on all deps collected by this watcher.
+   * Depend on all deps collected by this watcher.  // 一次性给收集的到的所有dep添加订阅
    */
   depend () {
     let i = this.deps.length;
@@ -4627,7 +4639,7 @@ class Watcher {
   /**
    * Remove self from all dependencies' subscriber list.
    */
-  teardown () {
+  teardown () {   // 只有在生命周期destory和手动调用的时候Watcher才会teardown
     if (this.active) {
       // remove self from vm's watcher list
       // this is a somewhat expensive operation so we skip it
@@ -4703,7 +4715,7 @@ function initProps (vm, propsOptions) {
           vm
         );
       }
-      defineReactive$$1(props, key, value, () => {
+      defineReactive(props, key, value, () => {
         if (!isRoot && !isUpdatingChildComponent) {
           warn(
             `Avoid mutating a prop directly since the value will be ` +
@@ -4984,13 +4996,14 @@ function stateMixin (Vue) {
 
 /*  */
 
-let uid$3 = 0;
+let uid$2 = 0;
 
+// [wangnew2013]:2017-02-16 16:20:37 Vue是一个节点类型为Component的树
 function initMixin (Vue) {
   Vue.prototype._init = function (options) {
     const vm = this;
     // a uid
-    vm._uid = uid$3++;
+    vm._uid = uid$2++;
 
     let startTag, endTag;
     /* istanbul ignore if */
@@ -5025,7 +5038,7 @@ function initMixin (Vue) {
     initEvents(vm);
     initRender(vm);
     callHook(vm, 'beforeCreate');
-    initInjections(vm); // resolve injections before data/props
+    initInjections(vm); // resolve injections before data/props  // inject是直接放到vm上的，暂时没有其他私有属性
     initState(vm);
     initProvide(vm); // resolve provide after data/props
     callHook(vm, 'created');
@@ -5307,9 +5320,9 @@ function pruneCacheEntry (
   keys,
   current
 ) {
-  const cached$$1 = cache[key];
-  if (cached$$1 && (!current || cached$$1.tag !== current.tag)) {
-    cached$$1.componentInstance.$destroy();
+  const cached = cache[key];
+  if (cached && (!current || cached.tag !== current.tag)) {
+    cached.componentInstance.$destroy();
   }
   cache[key] = null;
   remove(keys, key);
@@ -5416,7 +5429,7 @@ function initGlobalAPI (Vue) {
     warn,
     extend,
     mergeOptions,
-    defineReactive: defineReactive$$1
+    defineReactive
   };
 
   Vue.set = set;
@@ -5883,13 +5896,13 @@ function createPatchFunction (backend) {
   }
 
   function createRmCb (childElm, listeners) {
-    function remove$$1 () {
-      if (--remove$$1.listeners === 0) {
+    function remove () {
+      if (--remove.listeners === 0) {
         removeNode(childElm);
       }
     }
-    remove$$1.listeners = listeners;
-    return remove$$1
+    remove.listeners = listeners;
+    return remove
   }
 
   function removeNode (el) {
@@ -5900,7 +5913,7 @@ function createPatchFunction (backend) {
     }
   }
 
-  function isUnknownElement$$1 (vnode, inVPre) {
+  function isUnknownElement (vnode, inVPre) {
     return (
       !inVPre &&
       !vnode.ns &&
@@ -5949,7 +5962,7 @@ function createPatchFunction (backend) {
         if (data && data.pre) {
           creatingElmInVPre++;
         }
-        if (isUnknownElement$$1(vnode, creatingElmInVPre)) {
+        if (isUnknownElement(vnode, creatingElmInVPre)) {
           warn(
             'Unknown custom element: <' + tag + '> - did you ' +
             'register the component correctly? For recursive components, ' +
@@ -6047,11 +6060,11 @@ function createPatchFunction (backend) {
     insert(parentElm, vnode.elm, refElm);
   }
 
-  function insert (parent, elm, ref$$1) {
+  function insert (parent, elm, ref) {
     if (isDef(parent)) {
-      if (isDef(ref$$1)) {
-        if (nodeOps.parentNode(ref$$1) === parent) {
-          nodeOps.insertBefore(parent, elm, ref$$1);
+      if (isDef(ref)) {
+        if (nodeOps.parentNode(ref) === parent) {
+          nodeOps.insertBefore(parent, elm, ref);
         }
       } else {
         nodeOps.appendChild(parent, elm);
@@ -6465,7 +6478,7 @@ function createPatchFunction (backend) {
   function assertNodeMatch (node, vnode, inVPre) {
     if (isDef(vnode.tag)) {
       return vnode.tag.indexOf('vue-component') === 0 || (
-        !isUnknownElement$$1(vnode, inVPre) &&
+        !isUnknownElement(vnode, inVPre) &&
         vnode.tag.toLowerCase() === (node.tagName && node.tagName.toLowerCase())
       )
     } else {
@@ -7941,20 +7954,20 @@ function removeClass (el, cls) {
 
 /*  */
 
-function resolveTransition (def$$1) {
-  if (!def$$1) {
+function resolveTransition (def) {
+  if (!def) {
     return
   }
   /* istanbul ignore else */
-  if (typeof def$$1 === 'object') {
+  if (typeof def === 'object') {
     const res = {};
-    if (def$$1.css !== false) {
-      extend(res, autoCssTransition(def$$1.name || 'v'));
+    if (def.css !== false) {
+      extend(res, autoCssTransition(def.name || 'v'));
     }
-    extend(res, def$$1);
+    extend(res, def);
     return res
-  } else if (typeof def$$1 === 'string') {
-    return autoCssTransition(def$$1)
+  } else if (typeof def === 'string') {
+    return autoCssTransition(def)
   }
 }
 
@@ -8160,7 +8173,7 @@ function enter (vnode, toggleDisplay) {
     afterAppear,
     appearCancelled,
     duration
-  } = data;
+  } = (data);
 
   // activeInstance will always be the <transition> component managing this
   // transition. One edge case to check is when the <transition> is placed
@@ -8307,7 +8320,7 @@ function leave (vnode, rm) {
     leaveCancelled,
     delayLeave,
     duration
-  } = data;
+  } = (data);
 
   const expectsCSS = css !== false && !isIE9;
   const userWantsControl = getHookArgumentsLength(leave);
@@ -8615,10 +8628,10 @@ function locateNode (vnode) {
 var show = {
   bind (el, { value }, vnode) {
     vnode = locateNode(vnode);
-    const transition$$1 = vnode.data && vnode.data.transition;
+    const transition = vnode.data && vnode.data.transition;
     const originalDisplay = el.__vOriginalDisplay =
       el.style.display === 'none' ? '' : el.style.display;
-    if (value && transition$$1) {
+    if (value && transition) {
       vnode.data.show = true;
       enter(vnode, () => {
         el.style.display = originalDisplay;
@@ -8632,8 +8645,8 @@ var show = {
     /* istanbul ignore if */
     if (!value === !oldValue) return
     vnode = locateNode(vnode);
-    const transition$$1 = vnode.data && vnode.data.transition;
-    if (transition$$1) {
+    const transition = vnode.data && vnode.data.transition;
+    if (transition) {
       vnode.data.show = true;
       if (value) {
         enter(vnode, () => {
@@ -9293,8 +9306,8 @@ function decodeAttr (value, shouldDecodeNewlines) {
 function parseHTML (html, options) {
   const stack = [];
   const expectHTML = options.expectHTML;
-  const isUnaryTag$$1 = options.isUnaryTag || no;
-  const canBeLeftOpenTag$$1 = options.canBeLeftOpenTag || no;
+  const isUnaryTag = options.isUnaryTag || no;
+  const canBeLeftOpenTag = options.canBeLeftOpenTag || no;
   let index = 0;
   let last, lastTag;
   while (html) {
@@ -9456,12 +9469,12 @@ function parseHTML (html, options) {
       if (lastTag === 'p' && isNonPhrasingTag(tagName)) {
         parseEndTag(lastTag);
       }
-      if (canBeLeftOpenTag$$1(tagName) && lastTag === tagName) {
+      if (canBeLeftOpenTag(tagName) && lastTag === tagName) {
         parseEndTag(tagName);
       }
     }
 
-    const unary = isUnaryTag$$1(tagName) || !!unarySlash;
+    const unary = isUnaryTag(tagName) || !!unarySlash;
 
     const l = match.attrs.length;
     const attrs = new Array(l);
@@ -10104,8 +10117,8 @@ function addIfCondition (el, condition) {
 }
 
 function processOnce (el) {
-  const once$$1 = getAndRemoveAttr(el, 'v-once');
-  if (once$$1 != null) {
+  const once = getAndRemoveAttr(el, 'v-once');
+  if (once != null) {
     el.once = true;
   }
 }
@@ -11466,15 +11479,15 @@ function genSlot (el, state) {
         dynamic: attr.dynamic
       })))
     : null;
-  const bind$$1 = el.attrsMap['v-bind'];
-  if ((attrs || bind$$1) && !children) {
+  const bind = el.attrsMap['v-bind'];
+  if ((attrs || bind) && !children) {
     res += `,null`;
   }
   if (attrs) {
     res += `,${attrs}`;
   }
-  if (bind$$1) {
-    res += `${attrs ? '' : ',null'},${bind$$1}`;
+  if (bind) {
+    res += `${attrs ? '' : ',null'},${bind}`;
   }
   return res + ')'
 }
@@ -11703,7 +11716,7 @@ function createCompileToFunctionFn (compile) {
     vm
   ) {
     options = extend({}, options);
-    const warn$$1 = options.warn || warn;
+    const warn$1 = options.warn || warn;
     delete options.warn;
 
     /* istanbul ignore if */
@@ -11713,7 +11726,7 @@ function createCompileToFunctionFn (compile) {
         new Function('return 1');
       } catch (e) {
         if (e.toString().match(/unsafe-eval|CSP/)) {
-          warn$$1(
+          warn$1(
             'It seems you are using the standalone build of Vue.js in an ' +
             'environment with Content Security Policy that prohibits unsafe-eval. ' +
             'The template compiler cannot work in this environment. Consider ' +
@@ -11740,14 +11753,14 @@ function createCompileToFunctionFn (compile) {
       if (compiled.errors && compiled.errors.length) {
         if (options.outputSourceRange) {
           compiled.errors.forEach(e => {
-            warn$$1(
+            warn$1(
               `Error compiling template:\n\n${e.msg}\n\n` +
               generateCodeFrame(template, e.start, e.end),
               vm
             );
           });
         } else {
-          warn$$1(
+          warn$1(
             `Error compiling template:\n\n${template}\n\n` +
             compiled.errors.map(e => `- ${e}`).join('\n') + '\n',
             vm
@@ -11777,7 +11790,7 @@ function createCompileToFunctionFn (compile) {
     /* istanbul ignore if */
     {
       if ((!compiled.errors || !compiled.errors.length) && fnGenErrors.length) {
-        warn$$1(
+        warn$1(
           `Failed to generate render function:\n\n` +
           fnGenErrors.map(({ err, code }) => `${err.toString()} in\n\n${code}\n`).join('\n'),
           vm

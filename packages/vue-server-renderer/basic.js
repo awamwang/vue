@@ -1014,15 +1014,21 @@
   // The current target watcher being evaluated.
   // This is globally unique because only one watcher
   // can be evaluated at a time.
-  Dep.target = null;
-  var targetStack = [];
+  Dep.target = null; // 这个target是全局，是一个Watcher类型，只有调用pushTarget、popTarget的时候会挂上，实际上只有watcher在执行get时候才把Watcher自己推到target上
+  // Dep的depend方法只有Dep.target存在的时候才有意义，所以depend方法要与pushTarget/popTarget配套出现
+  var targetStack = []; // // Dep通过uid维持了一个顺序性，又通过statck维持了全局唯一和顺序
 
   function pushTarget (target) {
+    // 如果有当前target，先让它入栈；然后让当前的target变成传入的
+    // 在lifecycle.callHook、initData时都是先调用pushTarget()，不传参，过程结束后再popTarget()——这样的效果就是depend没有实际效果（所谓'disable dep collection'）
+    // 在Watcher计算的时候(get)，会把自己（watcher）传进来，计算结束后同样调用popTarget()，并且调用cleanupDeps把watcher记录的deps结算一下
+    // 总结：Watcher在计算的时候Dep.target会设置为自身，操作完会pop一个栈内的target出来，这样就实现了一个全局的target(Watcher)计算栈
     targetStack.push(target);
     Dep.target = target;
   }
 
   function popTarget () {
+    // 将栈顶的target(Watcher)pop成当前的
     targetStack.pop();
     Dep.target = targetStack[targetStack.length - 1];
   }
@@ -1098,8 +1104,8 @@
     this.value = value;
     this.dep = new Dep();
     this.vmCount = 0;
-    def(value, '__ob__', this);
-    if (Array.isArray(value)) {
+    def(value, '__ob__', this);// 每个属性的__ob__就是它对应的Observer对象
+    if (Array.isArray(value)) { // 给Array添加变异方法
       if (hasProto) {
         protoAugment(value, arrayMethods);
       } else {
@@ -1119,7 +1125,7 @@
   Observer.prototype.walk = function walk (obj) {
     var keys = Object.keys(obj);
     for (var i = 0; i < keys.length; i++) {
-      defineReactive$$1(obj, keys[i]);
+      defineReactive(obj, keys[i]);
     }
   };
 
@@ -1161,6 +1167,9 @@
    * returns the new observer if successfully observed,
    * or the existing observer if the value already has one.
    */
+  // data、prop都建立对应的Observer；还有其他调用defineReactive定义的key
+  // Observer是一个具有dep，（this.value = value）的每个属性都defineReactive的对象
+  // initState时候data、prop的第一层，asRootData参数为true
   function observe (value, asRootData) {
     if (!isObject(value) || value instanceof VNode) {
       return
@@ -1177,7 +1186,7 @@
     ) {
       ob = new Observer(value);
     }
-    if (asRootData && ob) {
+    if (asRootData && ob) { // 被多个vm观察的属性
       ob.vmCount++;
     }
     return ob
@@ -1186,7 +1195,7 @@
   /**
    * Define a reactive property on an Object.
    */
-  function defineReactive$$1 (
+  function defineReactive (
     obj,
     key,
     val,
@@ -1207,7 +1216,7 @@
       val = obj[key];
     }
 
-    var childOb = !shallow && observe(val);
+    var childOb = !shallow && observe(val);  // 生成一个Observer对象
     Object.defineProperty(obj, key, {
       enumerable: true,
       configurable: true,
@@ -1278,7 +1287,7 @@
       target[key] = val;
       return val
     }
-    defineReactive$$1(ob.value, key, val);
+    defineReactive(ob.value, key, val);
     ob.dep.notify();
     return val
   }
@@ -1641,9 +1650,9 @@
     var dirs = options.directives;
     if (dirs) {
       for (var key in dirs) {
-        var def$$1 = dirs[key];
-        if (typeof def$$1 === 'function') {
-          dirs[key] = { bind: def$$1, update: def$$1 };
+        var def = dirs[key];
+        if (typeof def === 'function') {
+          dirs[key] = { bind: def, update: def };
         }
       }
     }
@@ -3015,7 +3024,7 @@
     genData: genData$1
   };
 
-  var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+  var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
   function createCommonjsModule(fn, module) {
   	return module = { exports: {} }, fn(module, module.exports), module.exports;
@@ -3405,8 +3414,8 @@
   function parseHTML (html, options) {
     var stack = [];
     var expectHTML = options.expectHTML;
-    var isUnaryTag$$1 = options.isUnaryTag || no;
-    var canBeLeftOpenTag$$1 = options.canBeLeftOpenTag || no;
+    var isUnaryTag = options.isUnaryTag || no;
+    var canBeLeftOpenTag = options.canBeLeftOpenTag || no;
     var index = 0;
     var last, lastTag;
     while (html) {
@@ -3568,12 +3577,12 @@
         if (lastTag === 'p' && isNonPhrasingTag(tagName)) {
           parseEndTag(lastTag);
         }
-        if (canBeLeftOpenTag$$1(tagName) && lastTag === tagName) {
+        if (canBeLeftOpenTag(tagName) && lastTag === tagName) {
           parseEndTag(tagName);
         }
       }
 
-      var unary = isUnaryTag$$1(tagName) || !!unarySlash;
+      var unary = isUnaryTag(tagName) || !!unarySlash;
 
       var l = match.attrs.length;
       var attrs = new Array(l);
@@ -4364,8 +4373,8 @@
   }
 
   function processOnce (el) {
-    var once$$1 = getAndRemoveAttr(el, 'v-once');
-    if (once$$1 != null) {
+    var once = getAndRemoveAttr(el, 'v-once');
+    if (once != null) {
       el.once = true;
     }
   }
@@ -5715,15 +5724,15 @@
           dynamic: attr.dynamic
         }); }))
       : null;
-    var bind$$1 = el.attrsMap['v-bind'];
-    if ((attrs || bind$$1) && !children) {
+    var bind = el.attrsMap['v-bind'];
+    if ((attrs || bind) && !children) {
       res += ",null";
     }
     if (attrs) {
       res += "," + attrs;
     }
-    if (bind$$1) {
-      res += (attrs ? '' : ',null') + "," + bind$$1;
+    if (bind) {
+      res += (attrs ? '' : ',null') + "," + bind;
     }
     return res + ')'
   }
@@ -6424,7 +6433,7 @@
       vm
     ) {
       options = extend({}, options);
-      var warn$$1 = options.warn || warn;
+      var warn$1 = options.warn || warn;
       delete options.warn;
 
       /* istanbul ignore if */
@@ -6434,7 +6443,7 @@
           new Function('return 1');
         } catch (e) {
           if (e.toString().match(/unsafe-eval|CSP/)) {
-            warn$$1(
+            warn$1(
               'It seems you are using the standalone build of Vue.js in an ' +
               'environment with Content Security Policy that prohibits unsafe-eval. ' +
               'The template compiler cannot work in this environment. Consider ' +
@@ -6461,14 +6470,14 @@
         if (compiled.errors && compiled.errors.length) {
           if (options.outputSourceRange) {
             compiled.errors.forEach(function (e) {
-              warn$$1(
+              warn$1(
                 "Error compiling template:\n\n" + (e.msg) + "\n\n" +
                 generateCodeFrame(template, e.start, e.end),
                 vm
               );
             });
           } else {
-            warn$$1(
+            warn$1(
               "Error compiling template:\n\n" + template + "\n\n" +
               compiled.errors.map(function (e) { return ("- " + e); }).join('\n') + '\n',
               vm
@@ -6498,7 +6507,7 @@
       /* istanbul ignore if */
       {
         if ((!compiled.errors || !compiled.errors.length) && fnGenErrors.length) {
-          warn$$1(
+          warn$1(
             "Failed to generate render function:\n\n" +
             fnGenErrors.map(function (ref) {
               var err = ref.err;
@@ -6606,7 +6615,6 @@
   /*  */
 
   var ref = createCompiler(baseOptions);
-  var compile = ref.compile;
   var compileToFunctions = ref.compileToFunctions;
 
   /*  */
@@ -6902,13 +6910,13 @@
   var normalizeEvent = cached(function (name) {
     var passive = name.charAt(0) === '&';
     name = passive ? name.slice(1) : name;
-    var once$$1 = name.charAt(0) === '~'; // Prefixed last, checked first
-    name = once$$1 ? name.slice(1) : name;
+    var once = name.charAt(0) === '~'; // Prefixed last, checked first
+    name = once ? name.slice(1) : name;
     var capture = name.charAt(0) === '!';
     name = capture ? name.slice(1) : name;
     return {
       name: name,
-      once: once$$1,
+      once: once,
       capture: capture,
       passive: passive
     }
@@ -6937,13 +6945,13 @@
     on,
     oldOn,
     add,
-    remove$$1,
+    remove,
     createOnceHandler,
     vm
   ) {
-    var name, def$$1, cur, old, event;
+    var name, def, cur, old, event;
     for (name in on) {
-      def$$1 = cur = on[name];
+      def = cur = on[name];
       old = oldOn[name];
       event = normalizeEvent(name);
       if (isUndef(cur)) {
@@ -6967,7 +6975,7 @@
     for (name in oldOn) {
       if (isUndef(on[name])) {
         event = normalizeEvent(name);
-        remove$$1(event.name, oldOn[name], event.capture);
+        remove(event.name, oldOn[name], event.capture);
       }
     }
   }

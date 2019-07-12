@@ -754,7 +754,7 @@
   var targetStack = []; // // Dep通过uid维持了一个顺序性，又通过statck维持了全局唯一和顺序
 
   function pushTarget (target) {
-    // 如果有当前target，先让它入站；然后让当前的target变成传入的
+    // 如果有当前target，先让它入栈；然后让当前的target变成传入的
     // 在lifecycle.callHook、initData时都是先调用pushTarget()，不传参，过程结束后再popTarget()——这样的效果就是depend没有实际效果（所谓'disable dep collection'）
     // 在Watcher计算的时候(get)，会把自己（watcher）传进来，计算结束后同样调用popTarget()，并且调用cleanupDeps把watcher记录的deps结算一下
     // 总结：Watcher在计算的时候Dep.target会设置为自身，操作完会pop一个栈内的target出来，这样就实现了一个全局的target(Watcher)计算栈
@@ -929,8 +929,8 @@
     this.value = value;
     this.dep = new Dep();
     this.vmCount = 0;
-    def(value, '__ob__', this);
-    if (Array.isArray(value)) {
+    def(value, '__ob__', this);// 每个属性的__ob__就是它对应的Observer对象
+    if (Array.isArray(value)) { // 给Array添加变异方法
       if (hasProto) {
         protoAugment(value, arrayMethods);
       } else {
@@ -994,7 +994,7 @@
    */
   // data、prop都建立对应的Observer；还有其他调用defineReactive定义的key
   // Observer是一个具有dep，（this.value = value）的每个属性都defineReactive的对象
-  // initState时候data都建立asRootData的Observer
+  // initState时候data、prop的第一层，asRootData参数为true
   function observe (value, asRootData) {
     if (!isObject(value) || value instanceof VNode) {
       return
@@ -1011,7 +1011,7 @@
     ) {
       ob = new Observer(value);
     }
-    if (asRootData && ob) {
+    if (asRootData && ob) { // 被多个vm观察的属性
       ob.vmCount++;
     }
     return ob
@@ -1041,7 +1041,7 @@
       val = obj[key];
     }
 
-    var childOb = !shallow && observe(val);  // 基本就是递归的defineReactive
+    var childOb = !shallow && observe(val);  // 生成一个Observer对象
     Object.defineProperty(obj, key, {
       enumerable: true,
       configurable: true,
@@ -2441,7 +2441,7 @@
     }
   }
 
-  function initInjections (vm) {
+  function initInjections (vm) {  // Observer暂时关闭，把injection通过defineReactive定义到vm的相应key上
     var result = resolveInject(vm.$options.inject, vm);
     if (result) {
       toggleObserving(false);
@@ -3918,7 +3918,7 @@
       while (parent.$options.abstract && parent.$parent) {
         parent = parent.$parent;
       }
-      parent.$children.push(vm);
+      parent.$children.push(vm);   // 把实例挂到对应的父节点上
     }
 
     vm.$parent = parent;
@@ -4472,14 +4472,14 @@
   };
 
   /**
-   * Evaluate the getter, and re-collect dependencies.
+   * Evaluate the getter, and re-collect dependencies.// 计算这个watcher，重新收集它依赖的订阅器
    */
   Watcher.prototype.get = function get () {
-    pushTarget(this);// 每次获取值得时候，触发Dep收集自己为sub
+    pushTarget(this);// 每次获取值得时候，使Dep的depend生效，使Dep可以调用这个watcher把dep添加为依赖（给自己添加了一个对应的订阅器）；新添的在newDeps中
     var value;
     var vm = this.vm;
     try {
-      value = this.getter.call(vm, vm);
+      value = this.getter.call(vm, vm);// 这个操作会触发相应的那个key（用户定义的）所产生的defineReactive中的dep对当前Watcher执行depend
     } catch (e) {
       if (this.user) {
         handleError(e, vm, ("getter for watcher \"" + (this.expression) + "\""));
@@ -4490,7 +4490,7 @@
       // "touch" every property so they are all tracked as
       // dependencies for deep watching
       if (this.deep) {
-        traverse(value);
+        traverse(value); // 遍历对象，生成一个依赖的dep的Set（不重复）
       }
       popTarget();
       this.cleanupDeps();
@@ -4499,15 +4499,15 @@
   };
 
   /**
-   * Add a dependency to this directive.
+   * Add a dependency to this directive. // 一方面，把这个传入的dep添加到依赖队列；另一方面，如果自己不在传入的dep的订阅者队列中，要加进去（是双方向的）
    */
   Watcher.prototype.addDep = function addDep (dep) {
     var id = dep.id;
-    if (!this.newDepIds.has(id)) {
+    if (!this.newDepIds.has(id)) {// watcher维护的这个订阅队列，仅仅是检查增减，找出需要操作的dep；增了，要添加新增dep的订阅，减了，要取消对应dep的订阅
       this.newDepIds.add(id);
       this.newDeps.push(dep);
       if (!this.depIds.has(id)) {
-        dep.addSub(this);
+        dep.addSub(this);// 触发订阅
       }
     }
   };
@@ -4515,7 +4515,7 @@
   /**
    * Clean up for dependency collection.
    */
-  Watcher.prototype.cleanupDeps = function cleanupDeps () {
+  Watcher.prototype.cleanupDeps = function cleanupDeps () {// 如果新的依赖列表中不在存在某个dep，就叫这个dep不在通知当前Watcher（取消订阅）
     var i = this.deps.length;
     while (i--) {
       var dep = this.deps[i];
@@ -4523,6 +4523,7 @@
         dep.removeSub(this);
       }
     }
+    // 用完了把新的变为当前的，把新的清空，准备下一次收集
     var tmp = this.depIds;
     this.depIds = this.newDepIds;
     this.newDepIds = tmp;
@@ -4537,14 +4538,14 @@
    * Subscriber interface.
    * Will be called when a dependency changes.
    */
-  Watcher.prototype.update = function update () {
+  Watcher.prototype.update = function update () { // 代码注释也说了，这个是订阅者模式的update接口，dep发布notify，watcher就更新
     /* istanbul ignore else */
-    if (this.lazy) {
+    if (this.lazy) {// 懒执行，只标记为脏
       this.dirty = true;
-    } else if (this.sync) {
+    } else if (this.sync) { // 同步执行
       this.run();
     } else {
-      queueWatcher(this);
+      queueWatcher(this);// 异步队列中执行，加入队列，在nextTick执行flush
     }
   };
 
@@ -4590,7 +4591,7 @@
   };
 
   /**
-   * Depend on all deps collected by this watcher.
+   * Depend on all deps collected by this watcher.// 一次性给收集的到的所有dep添加订阅
    */
   Watcher.prototype.depend = function depend () {
     var i = this.deps.length;
@@ -5002,7 +5003,7 @@
       initEvents(vm);
       initRender(vm);
       callHook(vm, 'beforeCreate');
-      initInjections(vm); // resolve injections before data/props
+      initInjections(vm); // resolve injections before data/props  // inject是直接放到vm上的，暂时没有其他私有属性
       initState(vm);
       initProvide(vm); // resolve provide after data/props
       callHook(vm, 'created');

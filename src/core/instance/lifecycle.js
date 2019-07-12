@@ -38,7 +38,7 @@ export function initLifecycle (vm: Component) {
     while (parent.$options.abstract && parent.$parent) {
       parent = parent.$parent
     }
-    parent.$children.push(vm)
+    parent.$children.push(vm)   // 把实例挂到对应的父节点上
   }
 
   vm.$parent = parent

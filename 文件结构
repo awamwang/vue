@@ -11,8 +11,6 @@
 │  package-lock.json
 │  package.json
 │  README.md
-│  treefile.txt
-│  yarn-error.log
 │  yarn.lock
 │  
 ├─.circleci
@@ -20,7 +18,7 @@
 │
 ├─benchmarks  * 几个用来验证性能的html页面
 │          
-├─dist
+├─dist  * 打包后文件位置，也包括dev的打包文件
 │      
 ├─examples  * 几个Vue应用例子
 │          
@@ -37,7 +35,7 @@
 │          
 ├─scripts   * 打包、发布脚本
 │  │  alias.js
-│  │  build.js
+│  │  build.js  * 打包入口
 │  │  config.js
 │  │  feature-flags.js
 │  │  gen-release-note.js
@@ -77,22 +75,22 @@
 │  │          index.js
 │  │          text-parser.js
 │  │          
-│  ├─core
+│  ├─core   * 核心功能
 │  │  │  config.js
 │  │  │  index.js
 │  │  │  
-│  │  ├─components
+│  │  ├─components  * VueComponent
 │  │  │      index.js
 │  │  │      keep-alive.js
 │  │  │      
-│  │  ├─global-api
+│  │  ├─global-api  * 全局api的代码
 │  │  │      assets.js
 │  │  │      extend.js
-│  │  │      index.js
+│  │  │      index.js   * 将全局配置config以defineProperty方式挂到Vue上；set/delete/nextTick/observable
 │  │  │      mixin.js
 │  │  │      use.js
 │  │  │      
-│  │  ├─instance
+│  │  ├─instance    * Vue实例相关
 │  │  │  │  events.js
 │  │  │  │  index.js
 │  │  │  │  init.js
@@ -157,7 +155,7 @@
 │  │              index.js
 │  │              ref.js
 │  │              
-│  ├─platforms
+│  ├─platforms  * 给不同平台和打包版本单独的代码
 │  │  ├─web
 │  │  │  │  entry-compiler.js
 │  │  │  │  entry-runtime-with-compiler.js
@@ -327,23 +325,23 @@
 │  │          server.js
 │  │          util.js
 │  │          
-│  ├─sfc
+│  ├─sfc    // single file component * 单文件组件解析
 │  │      parser.js
 │  │      
-│  └─shared
+│  └─shared * 不同平台和打包版本公用的代码（包含常量定义和工具函数）
 │          constants.js
 │          util.js
 │          
 ├─test  * 测试用例目录
-│  ├─e2e    * 
+│  ├─e2e    * 使用nightwatch进行e2e测试的目录
 │  │          
-│  ├─helpers
+│  ├─helpers    * karma框架的helper
 │  │      
-│  ├─ssr
+│  ├─ssr    * 使用jasmine的测试ssr版本目录
 │  │          
-│  ├─unit
+│  ├─unit   *  jasmine+karma框架的单元测试
 │  │                  
-│  └─weex
+│  └─weex   * 使用jasmine的测试weex版本目录
 │                  
 └─types   * 给typescript的静态类型定义
     │  index.d.ts

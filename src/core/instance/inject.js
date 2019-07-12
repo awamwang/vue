@@ -13,7 +13,7 @@ export function initProvide (vm: Component) {
   }
 }
 
-export function initInjections (vm: Component) {
+export function initInjections (vm: Component) {  // Observer暂时关闭，把injection通过defineReactive定义到vm的相应key上
   const result = resolveInject(vm.$options.inject, vm)
   if (result) {
     toggleObserving(false)

@@ -96,14 +96,14 @@ export default class Watcher {
   }
 
   /**
-   * Evaluate the getter, and re-collect dependencies.
+   * Evaluate the getter, and re-collect dependencies.  // 计算这个watcher，重新收集它依赖的订阅器
    */
   get () {
-    pushTarget(this)  // 每次获取值得时候，触发Dep收集自己为sub
+    pushTarget(this)  // 每次获取值得时候，使Dep的depend生效，使Dep可以调用这个watcher把dep添加为依赖（给自己添加了一个对应的订阅器）；新添的在newDeps中
     let value
     const vm = this.vm
     try {
-      value = this.getter.call(vm, vm)
+      value = this.getter.call(vm, vm)  // 这个操作会触发相应的那个key（用户定义的）所产生的defineReactive中的dep对当前Watcher执行depend
     } catch (e) {
       if (this.user) {
         handleError(e, vm, `getter for watcher "${this.expression}"`)
@@ -114,7 +114,7 @@ export default class Watcher {
       // "touch" every property so they are all tracked as
       // dependencies for deep watching
       if (this.deep) {
-        traverse(value)
+        traverse(value)   // 遍历对象，生成一个依赖的dep的Set（不重复）
       }
       popTarget()
       this.cleanupDeps()
@@ -123,15 +123,15 @@ export default class Watcher {
   }
 
   /**
-   * Add a dependency to this directive.
+   * Add a dependency to this directive.   // 一方面，把这个传入的dep添加到依赖队列；另一方面，如果自己不在传入的dep的订阅者队列中，要加进去（是双方向的）
    */
   addDep (dep: Dep) {
     const id = dep.id
-    if (!this.newDepIds.has(id)) {
+    if (!this.newDepIds.has(id)) {  // watcher维护的这个订阅队列，仅仅是检查增减，找出需要操作的dep；增了，要添加新增dep的订阅，减了，要取消对应dep的订阅
       this.newDepIds.add(id)
       this.newDeps.push(dep)
       if (!this.depIds.has(id)) {
-        dep.addSub(this)
+        dep.addSub(this)  // 触发订阅
       }
     }
   }
@@ -139,7 +139,7 @@ export default class Watcher {
   /**
    * Clean up for dependency collection.
    */
-  cleanupDeps () {
+  cleanupDeps () {  // 如果新的依赖列表中不在存在某个dep，就叫这个dep不在通知当前Watcher（取消订阅）
     let i = this.deps.length
     while (i--) {
       const dep = this.deps[i]
@@ -147,6 +147,7 @@ export default class Watcher {
         dep.removeSub(this)
       }
     }
+    // 用完了把新的变为当前的，把新的清空，准备下一次收集
     let tmp = this.depIds
     this.depIds = this.newDepIds
     this.newDepIds = tmp
@@ -161,14 +162,14 @@ export default class Watcher {
    * Subscriber interface.
    * Will be called when a dependency changes.
    */
-  update () {
+  update () { // 代码注释也说了，这个是订阅者模式的update接口，dep发布notify，watcher就更新
     /* istanbul ignore else */
-    if (this.lazy) {
+    if (this.lazy) {  // 懒执行，只标记为脏
       this.dirty = true
-    } else if (this.sync) {
+    } else if (this.sync) { // 同步执行
       this.run()
     } else {
-      queueWatcher(this)
+      queueWatcher(this)  // 异步队列中执行，加入队列，在nextTick执行flush
     }
   }
 
@@ -214,7 +215,7 @@ export default class Watcher {
   }
 
   /**
-   * Depend on all deps collected by this watcher.
+   * Depend on all deps collected by this watcher.  // 一次性给收集的到的所有dep添加订阅
    */
   depend () {
     let i = this.deps.length
