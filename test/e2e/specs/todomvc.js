@@ -111,46 +111,46 @@ module.exports = {
       .click('.todo .toggle')
       .assert.count('.todo', 2)
 
-    // editing triggered by blur
-    browser
-      .click('.filters li:nth-child(1) a')
-      .dblClick('.todo:nth-child(1) label')
-      .assert.count('.todo.editing', 1)
-      .assert.focused('.todo:nth-child(1) .edit')
-      .clearValue('.todo:nth-child(1) .edit')
-      .setValue('.todo:nth-child(1) .edit', 'edited!')
-      .click('.new-todo') // blur
-      .assert.count('.todo.editing', 0)
-      .assert.containsText('.todo:nth-child(1) label', 'edited!')
+    // // editing triggered by blur
+    // browser
+    //   .click('.filters li:nth-child(1) a')
+    //   .dblClick('.todo:nth-child(1) label')
+    //   .assert.count('.todo.editing', 1)
+    //   .assert.focused('.todo:nth-child(1) .edit')
+    //   .clearValue('.todo:nth-child(1) .edit')
+    //   .setValue('.todo:nth-child(1) .edit', 'edited!')
+    //   .click('.new-todo') // blur
+    //   .assert.count('.todo.editing', 0)
+    //   .assert.containsText('.todo:nth-child(1) label', 'edited!')
 
-    // editing triggered by enter
-    browser
-      .dblClick('.todo label')
-      .enterValue('.todo:nth-child(1) .edit', 'edited again!')
-      .assert.count('.todo.editing', 0)
-      .assert.containsText('.todo:nth-child(1) label', 'edited again!')
+    // // editing triggered by enter
+    // browser
+    //   .dblClick('.todo label')
+    //   .enterValue('.todo:nth-child(1) .edit', 'edited again!')
+    //   .assert.count('.todo.editing', 0)
+    //   .assert.containsText('.todo:nth-child(1) label', 'edited again!')
 
-    // cancel
-    browser
-      .dblClick('.todo label')
-      .clearValue('.todo:nth-child(1) .edit')
-      .setValue('.todo:nth-child(1) .edit', 'edited!')
-      .trigger('.todo:nth-child(1) .edit', 'keyup', 27)
-      .assert.count('.todo.editing', 0)
-      .assert.containsText('.todo:nth-child(1) label', 'edited again!')
+    // // cancel
+    // browser
+    //   .dblClick('.todo label')
+    //   .clearValue('.todo:nth-child(1) .edit')
+    //   .setValue('.todo:nth-child(1) .edit', 'edited!')
+    //   .trigger('.todo:nth-child(1) .edit', 'keyup', 27)
+    //   .assert.count('.todo.editing', 0)
+    //   .assert.containsText('.todo:nth-child(1) label', 'edited again!')
 
-    // empty value should remove
-    browser
-      .dblClick('.todo label')
-      .enterValue('.todo:nth-child(1) .edit', ' ')
-      .assert.count('.todo', 3)
+    // // empty value should remove
+    // browser
+    //   .dblClick('.todo label')
+    //   .enterValue('.todo:nth-child(1) .edit', ' ')
+    //   .assert.count('.todo', 3)
 
     // toggle all
     browser
-      .click('.toggle-all')
-      .assert.count('.todo.completed', 3)
-      .click('.toggle-all')
-      .assert.count('.todo:not(.completed)', 3)
+      // .click('.toggle-all')
+      // .assert.count('.todo.completed', 3)
+      // .click('.toggle-all')
+      // .assert.count('.todo:not(.completed)', 3)
       .end()
 
     function createNewItem (text) {

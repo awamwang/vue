@@ -126,7 +126,7 @@ export function observe (value: any, asRootData: ?boolean): Observer | void {
   ) {
     ob = new Observer(value)
   }
-  if (asRootData && ob) { // 大于1，则被多个vm观察，asRootData是data、prop本身
+  if (asRootData && ob) { // 大于1，则被多个vm作为跟data观察
     ob.vmCount++
   }
   return ob
@@ -162,8 +162,8 @@ export function defineReactive (
     configurable: true,
     get: function reactiveGetter () {
       const value = getter ? getter.call(obj) : val
-      if (Dep.target) {
-        dep.depend()
+      if (Dep.target) { // 触发依赖收集，一个值在获取时，调用dep.depend()
+        dep.depend()  // 这样在其他值A计算时，调用了这个值的get，这里的dep就会告诉A，让A把这个dep添加为依赖
         if (childOb) {
           childOb.dep.depend()
           if (Array.isArray(value)) {
@@ -191,7 +191,7 @@ export function defineReactive (
         val = newVal
       }
       childOb = !shallow && observe(newVal)
-      dep.notify()
+      dep.notify()  // 之前收集了依赖它的观察者，这里通知观察者更新
     }
   })
 }
@@ -217,7 +217,7 @@ export function set (target: Array<any> | Object, key: any, val: any): any {
     return val
   }
   const ob = (target: any).__ob__
-  if (target._isVue || (ob && ob.vmCount)) {  // 如果传入的是vm._data，则ob有值
+  if (target._isVue || (ob && ob.vmCount)) {  // 如果传入的是vm._data，则(ob && ob.vmCount)为真
     process.env.NODE_ENV !== 'production' && warn(
       'Avoid adding reactive properties to a Vue instance or its root $data ' +
       'at runtime - declare it upfront in the data option.'

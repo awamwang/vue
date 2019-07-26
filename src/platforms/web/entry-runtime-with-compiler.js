@@ -79,7 +79,7 @@ Vue.prototype.$mount = function (
       }
     }
   }
-  return mount.call(this, el, hydrating)
+  return mount.call(this, el, hydrating) // ?? 为什么是个嵌套调用
 }
 
 /**

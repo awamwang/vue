@@ -29,7 +29,7 @@ export default class Watcher {
   cb: Function;
   id: number;   // Watcher的scheduler基于id实现调度
   deep: boolean;
-  user: boolean;
+  user: boolean;  // 用户定义的watch才是true的，理解上那些是用户的watcher，其他是为了响应而由框架建立的watcher
   lazy: boolean;
   sync: boolean;
   dirty: boolean;
@@ -44,7 +44,7 @@ export default class Watcher {
 
   constructor (
     vm: Component,
-    expOrFn: string | Function,
+    expOrFn: string | Function,   // expOrFn是计算watcher是要调用的东西，就是getter
     cb: Function,
     options?: ?Object,
     isRenderWatcher?: boolean
