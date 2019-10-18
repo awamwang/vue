@@ -79,7 +79,7 @@ Vue.prototype.$mount = function (
       }
     }
   }
-  return mount.call(this, el, hydrating) // ?? 为什么是个嵌套调用
+  return mount.call(this, el, hydrating)  // 使用之前保存的runtime的mount方法
 }
 
 /**

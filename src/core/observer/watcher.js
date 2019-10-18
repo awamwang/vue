@@ -44,7 +44,7 @@ export default class Watcher {
 
   constructor (
     vm: Component,
-    expOrFn: string | Function,   // expOrFn是计算watcher是要调用的东西，就是getter
+    expOrFn: string | Function,   // expOrFn是计算watcher时要调用的东西，就是getter
     cb: Function,
     options?: ?Object,
     isRenderWatcher?: boolean
@@ -99,7 +99,7 @@ export default class Watcher {
    * Evaluate the getter, and re-collect dependencies.  // 计算这个watcher，重新收集它依赖的订阅器
    */
   get () {
-    pushTarget(this)  // 每次获取值得时候，使Dep的depend生效，使Dep可以调用这个watcher把dep添加为依赖（给自己添加了一个对应的订阅器）；新添的在newDeps中
+    pushTarget(this)  // 每次获取值的时候，使Dep的depend生效，使Dep可以调用这个watcher把dep添加为依赖（给自己添加了一个对应的订阅器）；新添的在newDeps中
     let value
     const vm = this.vm
     try {
@@ -127,7 +127,7 @@ export default class Watcher {
    */
   addDep (dep: Dep) {
     const id = dep.id
-    if (!this.newDepIds.has(id)) {  // watcher维护的这个订阅队列，仅仅是检查增减，找出需要操作的dep；增了，要添加新增dep的订阅，减了，要取消对应dep的订阅
+    if (!this.newDepIds.has(id)) {  // watcher维护的这个订阅队列，仅仅是检查增减，找出需要操作的dep；增了，要添加新增dep的订阅，减了，要取消对应dep的订阅——异步更新队列只更新一次
       this.newDepIds.add(id)
       this.newDeps.push(dep)
       if (!this.depIds.has(id)) {

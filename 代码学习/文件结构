@@ -20,7 +20,7 @@
 │          
 ├─dist  * 打包后文件位置，也包括dev的打包文件
 │      
-├─examples  * 几个Vue应用例子
+├─examples  * 几个Vue应用例子，e2e的测试也要用到里面的页面
 │          
 ├─flow  * 静态类型flow定义文件；Vue使用flow实现静态类型——阅读代码的同学值得看一下
 │          
